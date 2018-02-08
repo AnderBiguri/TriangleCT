@@ -3,9 +3,10 @@ function g=meshgradient(graph,element_vals)
 % values defined in the centroid of the mesh by fitting a plane to the
 % nodes surrounding elements' centroids. 
 % https://math.stackexchange.com/a/2632616/44383
+% Yer the Chosen One, Harry
+
   
-% TODO: think about weigthed least squares, as further nodes can have less
-% weight
+
 
 nD=size(graph.elements(1).nodeId,2)-1;
 assert(nD==2 || nD==3,'Only 2D or 3D meshes supported');
