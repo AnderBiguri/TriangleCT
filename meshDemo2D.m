@@ -63,11 +63,11 @@ plotGraph2D(graph,nodevals);
 tic
 proj=meshForward(trivals,geo,angles,graph);
 toc
-tic
-proj=meshBack(proj,geo,angles,graph);
-toc
+% tic
+% bproj=meshBack(proj,geo,angles,graph);
+% toc
 %%
 [graphtest]=voxel2mesh(ones(size(P)),geo,'minPoissonDistance',1);
 
-res=SART(proj,geo,angles,graphtest,10);
+res=SART(proj,geo,angles,graphtest,30);
 
