@@ -10,7 +10,9 @@ A=sym('f',[3 3]);  % fucntion values
 % Sobel matrices
 Gy=[+1 0 -1;2 0 -2; 1 0 -1];
 Gx=[1 2 1; 0 0 0; -1 -2 -1];
-
+% Prewitt matrices
+Gy=[+1 0 -1;1 0 -1; 1 0 -1];
+Gx=[1 1 1; 0 0 0; -1 -1 -1];
 %A Apply Sobel operator
 % In an image, The OX vector starts top corner and goes donwards
 gradx=sum(sum(Gx.*flipud(A)));
@@ -41,6 +43,7 @@ f=A(:);
 % weigthed distances
 % (OK, I cheated here, by directly appliying the numerical values)
 W=diag([1/sqrt(2) 1 1/sqrt(2) 1 0 1 1/sqrt(2) 1 1/sqrt(2)]).^2;
+W=eye(9);
 % W=eye(9);
 grad2=(u.'*W*u)^-1*u.'*W*f;
 

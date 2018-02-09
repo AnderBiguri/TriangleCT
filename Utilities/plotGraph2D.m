@@ -17,7 +17,7 @@ if ~isempty(TRIvals)
     end
     patch('faces',cell2mat({graph.elements.nodeId}.'),'vertices',cell2mat({graph.nodes.positions}.'),'FaceVertexCData',TRIvals,'FaceColor' , fcolor,'linestyle',linestyle)
     c=colorbar;
-    c.Color=[1 1 1];
+    c.Color=imcomplement(cmap(1,:));
     
     caxis(clims)
 
