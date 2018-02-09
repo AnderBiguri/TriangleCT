@@ -32,7 +32,7 @@ for ii=1:size(graph.nodes,2)
         d(jj)=sqrt(sum((centroids(graph.nodes(ii).neighbour_elems(jj),:)-graph.nodes(ii).positions).^2,2));
     end
     gradi=element_vals(graph.nodes(ii).neighbour_elems);
-    aux=diri\gradi;
+    aux=lscov(diri,gradi,1/d.^2);
     g(ii,:)=aux(1:nD);
 end
 

@@ -8,12 +8,13 @@ Ay=sym('y',[3 3]); % Y coordinates
 A=sym('f',[3 3]);  % fucntion values
 
 % Sobel matrices
-Gx=[+1 0 -1;2 0 -2; 1 0 -1];
-Gy=[1 2 1; 0 0 0; -1 -2 -1];
+Gy=[+1 0 -1;2 0 -2; 1 0 -1];
+Gx=[1 2 1; 0 0 0; -1 -2 -1];
 
 %A Apply Sobel operator
-gradx=sum(sum(Gx.*A));
-grady=sum(sum(Gy.*A));
+% In an image, The OX vector starts top corner and goes donwards
+gradx=sum(sum(Gx.*flipud(A)));
+grady=sum(sum(Gy.*flipud(A)));
 
 % modulus of the sobel operator
 grad_mod=sqrt(gradx^2+grady^2);
@@ -34,11 +35,13 @@ u=subs(u,{'y3_1','y3_2','y3_3'},[-1 -1 -1]);
 
 
 % fucntion values
+
+A=A.';
 f=A(:);
 % weigthed distances
 % (OK, I cheated here, by directly appliying the numerical values)
 W=diag([1/sqrt(2) 1 1/sqrt(2) 1 0 1 1/sqrt(2) 1 1/sqrt(2)]).^2;
-
+% W=eye(9);
 grad2=(u.'*W*u)^-1*u.'*W*f;
 
 
@@ -47,11 +50,25 @@ grad2_mod=sqrt(grad2(1)^2+grad2(2)^2);
 grad2_angle=atan2(grad2(2),grad2(1));
 %% Now lets give numerical values
 
-
+% 
 simplify(grad_mod/grad2_mod)
-% imgvals=rand(1,9);
 % 
-% res=double(subs(grad_mod,{'f1_1' 'f1_2' 'f1_3' 'f2_1' 'f2_2' 'f2_3' 'f3_1' 'f3_2' 'f3_3'},imgvals))
-% res2=double(subs(grad2_mod,{'f1_1' 'f1_2' 'f1_3' 'f2_1' 'f2_2' 'f2_3' 'f3_1' 'f3_2' 'f3_3'},imgvals))
+% simplify(grad_angle/grad2_angle)
+
+imgvals=rand(1,9)*10;
+% imgvals=[0 1 0 0 0 0 0 0 0];
 % 
-% p=res/res2
+res_m=double(subs(grad_mod,{'f1_1' 'f1_2' 'f1_3' 'f2_1' 'f2_2' 'f2_3' 'f3_1' 'f3_2' 'f3_3'},imgvals));
+res2_m=double(subs(grad2_mod,{'f1_1' 'f1_2' 'f1_3' 'f2_1' 'f2_2' 'f2_3' 'f3_1' 'f3_2' 'f3_3'},imgvals));
+res_a=double(subs(grad_angle,{'f1_1' 'f1_2' 'f1_3' 'f2_1' 'f2_2' 'f2_3' 'f3_1' 'f3_2' 'f3_3'},imgvals));
+res2_a=double(subs(grad2_angle,{'f1_1' 'f1_2' 'f1_3' 'f2_1' 'f2_2' 'f2_3' 'f3_1' 'f3_2' 'f3_3'},imgvals));
+% 
+res_a=res_a*180/pi;
+res2_a=res2_a*180/pi;
+
+a = res2_a - res_a;
+a = mod((a + 180),360) - 180
+
+quiver(0,0,res_m*cosd(res_a),res_m*sind(res_a))
+hold on
+quiver(0,0,res2_m*8*cosd(res2_a),res2_m*8*sind(res2_a))
