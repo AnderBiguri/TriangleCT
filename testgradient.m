@@ -141,7 +141,7 @@ figure
 return; 
 %% Test parabolloid
 
-g_piotr=meshgradient1_2(graph,zmesh);
+% g_piotr=meshgradient1_2(graph,zmesh);
 % g_piotr_no_weigth=meshgradient1_2(graph,zmesh);
 g_flawr=meshgradient(graph,zmesh);
 % 
