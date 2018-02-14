@@ -1,4 +1,4 @@
-function div=meshdivergence(graph,nodevects)
+function div=meshDivergence(graph,nodevects)
 % computes the divergence of a triangle mesh
 
 

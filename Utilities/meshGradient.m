@@ -1,4 +1,4 @@
-function g=meshgradient(graph,graph_vals,varargin)
+function g=meshGradient(graph,graph_vals,varargin)
 %MESHGRADIENT(..) computes the gradient of a triangular mesh using function
 % values defined in the centroid of the mesh by fitting a plane to the
 % nodes surrounding elements' centroids.
