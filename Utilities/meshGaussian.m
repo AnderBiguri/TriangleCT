@@ -9,9 +9,9 @@ if nargin<3
 end
 gauss=zeros(size(samples,1),1);
 for dim=1:size(mean,2)
-  gauss=gauss-(samples(:,dim)-mean(dim)).^2/2*sigmadiag(dim)^2;
+  gauss=gauss-(samples(:,dim)-mean(dim)).^2/2/sigmadiag(dim)^2;
 end
-gauss=exp(gauss)/prod(sigmadiag)/2/pi;
+gauss=exp(gauss);%/prod(sigmadiag)/2/pi;
 
 
 

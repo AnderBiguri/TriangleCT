@@ -1,4 +1,4 @@
-function g=meshGradient(graph,graph_vals,varargin)
+function grad=meshGradient(graph,graph_vals,varargin)
 %MESHGRADIENT(..) computes the gradient of a triangular mesh using function
 % values defined in the centroid of the mesh by fitting a plane to the
 % nodes surrounding elements' centroids.
@@ -13,7 +13,7 @@ assert(nD==2 || nD==3,'Only 2D or 3D meshes supported');
 
 
 
-g=zeros(size(graph.nodes,2),nD);
+grad=zeros(size(graph.nodes,2),nD);
 
 % This method needs the adjacency of the node-elements
 
@@ -44,7 +44,7 @@ if size(graph_vals,1)==size(graph.elements,2)
         elseif strcmpi(method,'Prewitt')
             aux=diri\gradi;
         end
-        g(ii,:)=aux(1:nD);
+        grad(ii,:)=aux(1:nD);
     end
     
 % If fucntion values have been given in nodes 
@@ -68,7 +68,7 @@ elseif size(graph_vals,1)==size(graph.nodes,2)
         elseif strcmpi(method,'Prewitt')
             aux=diri\gradi;
         end
-        g(ii,:)=aux(1:nD);
+        grad(ii,:)=aux(1:nD);
     end
     
 end
