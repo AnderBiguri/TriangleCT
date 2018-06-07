@@ -92,7 +92,7 @@ g_real=[(nodes(:,1)-y0)*2 (nodes(:,2)-x0)*2];
 
 % g_piotr=meshgradient1_2(graph,zmesh);
 % g_piotr_no_weigth=meshgradient1_2(graph,zmesh);
-g_flawr=meshgradient(graph,trivals);
+g_flawr=meshGradient(graph,trivals);
 g_flawr_nobound=g_flawr;
 boundary_nodes=unique(cell2mat({graph.elements(graph.boundary_elems).nodeId}));
 g_flawr_nobound(boundary_nodes,:)=repmat([0 0],[length(boundary_nodes),1]);
@@ -125,8 +125,9 @@ figure()
 trisurf(cell2mat({graph.elements.nodeId}.'),graph.nodes(:,1),graph.nodes(:,2),sqrt(sum(g_piotr.^2,2)).','linestyle','none');xlabel('x');ylabel('y')
 % figure()
 % trisurf(cell2mat({graph.elements.nodeId}.'),graph.nodes(:,1),graph.nodes(:,2),sqrt(sum(g_piotr_no_weigth.^2,2)).','linestyle','none');xlabel('x');ylabel('y')
+pos=csl2mat(graph.nodes(:).positions);
 figure()
-trisurf(cell2mat({graph.elements.nodeId}.'),graph.nodes(:,1),graph.nodes(:,2),sqrt(sum(g_flawr.^2,2)).','linestyle','none');xlabel('x');ylabel('y')
+trisurf(cell2mat({graph.elements.nodeId}.'),pos(:,1),pos(:,2),sqrt(sum(g_flawr.^2,2)).','linestyle','none');xlabel('x');ylabel('y')
 
 %%
 close all

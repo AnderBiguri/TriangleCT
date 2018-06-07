@@ -1,4 +1,4 @@
-function phi=meshDRLSE(graph,trivals,phi,niter,t,mu,lambda,alpha)
+function phi=meshDRLSE(graph,nodevals,phi,niter,t,mu,lambda,alpha)
 
 %      C. Li, C. Xu, C. Gui, M. D. Fox, "Distance Regularized Level Set Evolution and Its Application to Image Segmentation", 
 %        IEEE Trans. Image Processing, vol. 19 (12), pp.3243-3254, 2010.
@@ -6,8 +6,10 @@ function phi=meshDRLSE(graph,trivals,phi,niter,t,mu,lambda,alpha)
 
 % create a default phi, if not given
 
-
-nodevals=meshInterpolateNodes(graph,trivals);
+if size(nodevals,1)==size(graph.elements,2)
+    nodevals=meshInterpolateNodes(graph,nodevals);
+end
+    
 for ii=1:niter
     gphi=meshGradient(graph,phi);
     gmod=sqrt(sum((gphi).^2,2));

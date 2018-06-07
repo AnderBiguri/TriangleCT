@@ -35,7 +35,8 @@ for ii=1:size(TRI,1)
     end
     
     % The amount of neihgbours must be nd+1 or nd (in case of the boundary)
-    assert(length(graph.elements(ii).neighbours)<=(nD+1) && length(graph.elements(ii).neighbours)>=nD);
+    % ABOVE NOT TRUE
+%     assert(length(graph.elements(ii).neighbours)<=(nD+1) && length(graph.elements(ii).neighbours)>=nD);
 end
 
 
