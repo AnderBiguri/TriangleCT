@@ -8,7 +8,7 @@ if size(graph.nodes,1)~=1
     nD=size(nodes,2);
     graph=rmfield(graph,'nodes');
     for ii=1:size(nodes,1)
-        graph.nodes(ii).positions=nodes(ii,:);
+        graph.nodes(ii).positions=single(nodes(ii,:));
         graph.nodes(ii).neighbour_elems=[];
         graph.nodes(ii).neighbour_nodes=[];
     end

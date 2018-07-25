@@ -1,4 +1,4 @@
-function TRIvals=meshBack(proj,geo,angles,graph)
+function TRIvals=meshBackParallel(proj,geo,angles,graph)
 %MESHFORWARD backprojects the X-ray data of a triangular graph geometry.
 %  This function backprojects X-ray images. MESHGRAPH has to be a
 %  connected graph, describing a triangular FEM-type mesh

@@ -6,4 +6,8 @@ addpath ./Utilities/
 addpath ./Utilities/Colormaps
 addpath ./Utilities/third_party/Poisson-Disc-Sampling
 addpath ./Utilities/third_party/sec2hours
+addpath ./Utilities/third_party/STLRead
+
 addpath ./Algorithms/
+
+addpath ./Mex

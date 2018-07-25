@@ -7,7 +7,7 @@ nD=size(points,2);
 assert(nD==2 || nD==3,'Only 2D or 3D meshes supported');
 
 for ii=1:size(points,1)
-    graph.nodes(ii).positions=points(ii,:);
+    graph.nodes(ii).positions=single(points(ii,:));
     graph.nodes(ii).neighbour_elems=[];
 end
 
@@ -28,7 +28,7 @@ for ii=1:size(TRI,1)
     
     graph.elements(ii).neighbours = uint32(sort(u(histc(elem,u)==nD)));
     
-    graph.elements(ii).nodeId=TRI(ii,:);
+    graph.elements(ii).nodeId=uint32(TRI(ii,:));
     
     for jj=1:nD+1
         graph.nodes(TRI(ii,jj)).neighbour_elems=uint32([graph.nodes(TRI(ii,jj)).neighbour_elems,ii]);
@@ -51,7 +51,7 @@ for ii=1:size(TRI,1)
        boundary=[boundary ii];
    end
 end
-graph.boundary_elems=boundary;
+graph.boundary_elems=uint32(boundary);
 
 
 end
