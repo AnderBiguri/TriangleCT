@@ -1,4 +1,4 @@
-function [flag, u, v, t] = mollerTrumbore (ray,tri)
+function [flag, u, v, t] = mollerTrumbore_safe (ray,tri,espilon_safe)
 % Ray/triangle intersection using the algorithm proposed by Moller and Trumbore (1997).
 %
 % IMPORTANT NOTE: Assumes infinite legth rays.
@@ -31,7 +31,7 @@ function [flag, u, v, t] = mollerTrumbore (ray,tri)
     s = ray(1,:)-tri(1,:);
     u = f*dot(s,q);
     
-    if (u<0.0)
+    if (u<-espilon_safe)
         % the intersection is outside of the triangle
         [flag, u, v, t] = deal(0,0,0,0);
         return;          
@@ -40,7 +40,7 @@ function [flag, u, v, t] = mollerTrumbore (ray,tri)
     r = cross(s,e1);
     v = f*dot(d,r);
     
-    if (v<0.0 || u+v>1.0)
+    if (v<-espilon_safe || u+v>1.0+espilon_safe)
         % the intersection is outside of the triangle
         [flag, u, v, t] = deal(0,0,0,0);
         return;
@@ -48,7 +48,8 @@ function [flag, u, v, t] = mollerTrumbore (ray,tri)
     if nargout>3
         t = f*dot(e2,r); % verified! 
     end
-    fprintf("%.16f %.16f %.16f\n",u,v,t);
     flag = 1;
+%      fprintf("%.16f %.16f %.16f\n",q(1),q(2),q(3));
+%     fprintf("%.16f  %.16f %.16f %.16f %.16f\n",a,f,u,v,f*dot(e2,r));
     return
 end

@@ -1,10 +1,10 @@
-function d=lineTriangleIntersectLength(line, triangle)
+function [d,t1,t2]=lineTriangleIntersectLength(line, triangle)
 
 
 if size(triangle,2)==2
     d=lineTriangleIntersectLength2D(line, triangle);
 else
-    d=lineTriangleIntersectLength3D(line, triangle);
+    [d,t1,t2]=lineTriangleIntersectLength3D(line, triangle);
 end
 
 
@@ -33,31 +33,36 @@ d=sqrt(sum((intersectPoints(2,:)-intersectPoints(1,:)) .^2) );
 end
 
 
-function d=lineTriangleIntersectLength3D(line, triangle)
+function [d,t1,t2]=lineTriangleIntersectLength3D(line, triangle)
 vecline=line(2,:)-line(1,:);
 triIds=[1 2 3; 1 2 4; 1 3 4; 2 3 4];
 tid=1;
+t1=0;t2=0;
 for ii=1:4
-    [intersect, ~,~, t(tid)] = mollerTrumbore(line,triangle(triIds(ii,:),:));
-    if intersect
-        tid=tid+1;
-    end
+    [intersect(ii), ~,~, t(ii)] = mollerTrumbore(line,triangle(triIds(ii,:),:));
+
 end
-switch tid
-    case 1 % no triangle intersected
+t(~intersect)=[];
+switch length(t)
+    case 0 % no triangle intersected
         d=-1;
         return;
-    case 2 % 1 triangle intersected (touchig edge)
+    case 1 % 1 triangle intersected (touchig edge)
         d=0;
         return;
-    case 3 % 2 triangles intersected normal case
-    case 4 % 3 triangles intersected, edge case. 
-        t=uniquetol(t,1e-6); % delete repeated intersections.
+    case 2 % 2 triangles intersected normal case
+    case 3 % 3 triangles intersected, edge case. 
+        t=uniquetol(t,1e-6);
+        if(length(t)<=1)
+            d=0;
+            return;
+        end
 end
-               
+t=sort(t);           
 intersectPoints(1,:)=t(1)*vecline; %+line(1,:)
 intersectPoints(2,:)=t(2)*vecline; %+line(1,:)
 d=sqrt(sum((intersectPoints(2,:)-intersectPoints(1,:)) .^2) );
+t1=t(1);t2=t(2);
 end
 
 function val=cross2d(vec1,vec2)

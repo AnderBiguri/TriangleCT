@@ -152,7 +152,7 @@ for ii=list
     axis image;  
     axis equal; 
     
-    colormap(cmap); 
+    colormap(feval(cmap,256)); 
     colorbar; 
     caxis([climits(1),climits(2)]);
     
@@ -163,7 +163,8 @@ for ii=list
     set(gca,'YDir','normal');
     
     title(['Degree : ',num2str(alpha(ii)*180/pi)]);
-    pause(0.01);
+%     pause(0.01);
+drawnow
     if savegif
         
       frame = getframe(fh);

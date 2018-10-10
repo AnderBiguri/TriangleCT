@@ -1,5 +1,5 @@
 function graph=fixgraph(graph)
-% FIXGRAPH fixes the structure of teh input graph, if needed.
+% FIXGRAPH fixes the structure of the input graph, if needed.
 
 
 % if nodes are not built as single elements in a graph

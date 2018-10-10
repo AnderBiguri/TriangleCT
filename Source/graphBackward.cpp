@@ -19,7 +19,7 @@
 #include "matrix.h"
 #include "types_TIGRE.hpp"
 #include "graph.hpp"
-#include "graph_ray_projection.hpp"
+#include "graph_ray_backprojection.hpp"
 #include <string.h>
 
 Geometry initGeo(mxArray* geometryMex, const unsigned int nangles);
@@ -42,9 +42,9 @@ void mexFunction(int  nlhs , mxArray *plhs[],
     /*********************************************************************
      *********************** First Input ********************************
      ********************************************************************/
-    // Image
-    mxArray const * const imgMex = prhs[0];
-    float const * const img = static_cast<float const *>(mxGetData(imgMex));
+    // projetions
+    mxArray const * const projMex = prhs[0];
+    float const * const proj = static_cast<float const *>(mxGetData(projMex));
     // TODO: do we need to get the size now or are we cool?
     
     
@@ -105,24 +105,20 @@ void mexFunction(int  nlhs , mxArray *plhs[],
     /*********************************************************************
      *********************** Create output   ********************************
      ********************************************************************/
-    mwSize outsize[3];
-    outsize[0]=geo.nDetecV;
-    outsize[1]=geo.nDetecU;
-    outsize[2]= nangles;
-    plhs[0] = mxCreateNumericArray(3, outsize, mxSINGLE_CLASS, mxREAL);
-    float *outProjections = (float*)mxGetPr(plhs[0]);  // WE will NOT be freeing this pointer!
-    float** result = (float**)malloc(nangles * sizeof(float*)); // This only allocates memory for pointers
-    unsigned long long projSizeInPixels = geo.nDetecU * geo.nDetecV;
-    for (unsigned int i = 0; i < nangles; i++)
-    {
-        unsigned long long currProjIndex = projSizeInPixels*i;
-        result[i] = &outProjections[currProjIndex]; // now the pointers are the same
-    }
+    mwSize outsize[1];
+    outsize[0]=nelements;
+
+    plhs[0] = mxCreateNumericArray(1, outsize, mxSINGLE_CLASS, mxREAL);
+    float *outImage = (float*)mxGetPr(plhs[0]);  // WE will NOT be freeing this pointer!
+    float* result = (float*)malloc(nelements * sizeof(float)); // This only allocates memory for pointers
+    
+    result=outImage;
+
     /*********************************************************************
      *********************** Run code ********************************
      ********************************************************************/
   
-    graphForwardRay(img,geo,
+    graphBackwardRay_CPU(proj,geo,
                         angles,nangles,
                         vertices,nvertices,
                         elements,nelements,

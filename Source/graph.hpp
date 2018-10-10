@@ -8,7 +8,7 @@
 // A finite element, a tetrahedron
 struct Element {
     unsigned int nNeighbour;
-    unsigned int* neighbour;
+    int* neighbour;
     unsigned int* nodeID;
     float value; // TODO: we want this here or separated?
 };
@@ -27,6 +27,6 @@ struct Graph{
      Element * element;
      Node* node;
      unsigned int nBoundary;
-     unsigned int* boundary;
+     int* boundary;
 };
 #endif

@@ -1,8 +1,8 @@
 function TRIvals=meshBack(proj,geo,angles,graph)
-%MESHFORWARD backprojects the X-ray data of a triangular graph geometry.
-%  This function backprojects X-ray images. MESHGRAPH has to be a
+%MESHFORWARD forward projects the X-ray data of a triangular graph geometry.
+%  This fucntion forward projects X-ray images. MESHGRAPH has to be a
 %  connected graph, describing a triangular FEM-type mesh
-%  MESHBACK(TRIVALS,GEO,ANGLES,MESHGRAPH)
+%  MESHFORWARD(TRIVALS,GEO,ANGLES,MESHGRAPH)
 %              TRIVALS: numerical values of the mesh elements
 %              GEO: TIGRE style geometry structure
 %              ANGLES: array of angles that is desired to take the
@@ -10,86 +10,201 @@ function TRIvals=meshBack(proj,geo,angles,graph)
 %              MESHGRAPH: a connected graph describing a FEM-type
 %              triangular mesh
 %
-%  See also TRIMESH2GRAPH, MESHFORWARD, VOXEL2MESH
+%  See also TRIMESH2GRAPH, MESHBACK, VOXEL2MESH
 
-if length(graph.elements(1).nodeId)==4
-    error('3D Mesh not yet supported')
-end
 
+[TRI,nodes]=graph2trimesh(graph);TRI=double(TRI);nodes=double(nodes);
 % Grab all nodes positions for speed
-nodes=csl2mat(graph.nodes(:).positions);
+% nodes=csl2mat(graph.nodes(:).positions);
+TRIvals=zeros(size(graph.elements));
+vmin=[min(nodes(:,1)) min(nodes(:,2)) min(nodes(:,3))];
+vmax=[max(nodes(:,1)) max(nodes(:,2)) max(nodes(:,3))];
 
 % preallocate projection data
-TRIvals=zeros(size(graph.elements,2),1);
+% proj=zeros(geo.nDetector(2),geo.nDetector(1),length(angles));
 nangles=length(angles);
-
 % Define Source and detector world locations, and rotation to be applied
 us = ((-geo.nDetector(1)/2+0.5):1:(geo.nDetector(1)/2-0.5))*geo.dDetector(1) + geo.offDetector(1);
 vs = ((-geo.nDetector(2)/2+0.5):1:(geo.nDetector(2)/2-0.5))*geo.dDetector(2) + geo.offDetector(2);
 % detector=[-(geo.DSD-geo.DSO)*ones(geo.nDetector(1),1),(-geo.sDetector(1)/2+geo.dDetector(1)/2:geo.dDetector(1):geo.sDetector(1)/2-geo.dDetector(1)/2)'];
-source=[+geo.DSO,0,0];
+source=[+geo.DSO(1),0,0];
 R =@(theta)( [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]);
 % Loop every projection
 for k=1:nangles
     % for every pixell in the detector
-    for ii=1:geo.nDetector(1)
-        for jj=1:geo.nDetector(2)
+    for ii=1:geo.nDetector(2)
+        for jj=1:geo.nDetector(1)
+            %     for ii=185
+            %         for jj=104
             
-            ray=[source; -(geo.DSD-geo.DSO), us(ii), vs(jj)];
+            
+            %           proj(ii,jj,k)=1;
+            %           return
+            
+            
+            
+            ray=[source; -(geo.DSD(1)-geo.DSO(1)), us(jj), vs(ii)];
             ray=(R(angles(k))*ray.').';
-
-            
-            
-            % TODO: fix following
-            % WARNING: for know lets assume mesh in convex.
-            
-            % find an intersection with the boundary.
-            notintersect=0;
-            for bb=1:length(graph.boundary_elems)
-                if ~isLineTriangleIntersect(ray,nodes(graph.elements(graph.boundary_elems(bb)).nodeId,:))
-                    notintersect=notintersect+1; % we got an intersection!
-                else
-                    break
-                end
+            %             plot3(ray(:,1),ray(:,2),ray(:,3),'r')
+            vecline=single(ray(2,:))-single(ray(1,:));
+            [flag,tmin,tmax]=rayBoxIntersection(ray(1,:),vecline,vmin,vmax);
+            if flag==0
+                continue;
             end
+            % TODO: fix following
+            % WARNING: for now lets assume mesh in convex.
+            initInter=1.1;
+            % find an intersection with the boundary.
+            
+            epsilon=1e-6;
+            notintersect=length(graph.boundary_elems);
+            while notintersect==length(graph.boundary_elems)
+                notintersect=0;
+                for bb=1:length(graph.boundary_elems)
+                    [t]=lineTriangleIntersectLength2_safe(ray,nodes(graph.elements(graph.boundary_elems(bb)).nodeId,:),epsilon);
+                    if sum(t)==0
+                        notintersect=notintersect+1;
+                    else
+                        % interesction!
+                        t1=min(t(t>0));
+                        if initInter>t1
+                            initInter=t1;
+                            initInterind=bb;
+                        end
+                    end
+                end
+                epsilon=epsilon*10;
+            end
+            epsilon=epsilon/10;
             % if we looked at the whole boudnary and no intersection was found,
             % then the ray is outside the mesh. OUT!
-            if notintersect==length(graph.boundary_elems)
+            
+            % now start line search from indes bb.
+            % lets get the intersection of that boundary element
+            [t]=lineTriangleIntersectLength2_safe(ray,nodes(graph.elements(graph.boundary_elems(initInterind)).nodeId,:),epsilon);
+            
+            % assuming 2 intersections
+            %             if nnz(t)~=2
+            %                 keyboard
+            %             end
+            [t2,indt]=max(t);
+            t1=min(t(t>0));
+            %             disp(['Elem: ',num2str(graph.boundary_elems(initInterind)),' t1: ',num2str(t1),' t2: ',num2str(t2)]);
+            %             fprintf("%.16f %.16f %.16f\n",ray(1),ray(3),ray(5));
+            %             fprintf("%.16f %.16f %.16f\n",ray(2),ray(4),ray(6));
+            %             fprintf("%.16f %.16f\n",t1,t2);
+            d=(t2-t1)*norm(vecline);
+            %             intersectPoints(1,:)=t1*vecline; %+line(1,:)
+            %             intersectPoints(2,:)=t2*vecline; %+line(1,:)
+            %             d=sqrt(sum((intersectPoints(2,:)-intersectPoints(1,:)) .^2) );
+            
+%             proj(ii,jj,k)=proj(ii,jj,k)+d*TRIvals(graph.boundary_elems(initInterind));
+            TRIvals(graph.boundary_elems(initInterind))=TRIvals(graph.boundary_elems(initInterind))+proj(ii,jj,k)*d;
+            %             neighbours=graph.elements(graph.boundary_elems(initInterind)).neighbours;
+            if t1==t2
+                if graph.elements(graph.boundary_elems(initInterind)).neighbours(indt)==0
+                    indts=find(t==t1);
+                    indt=indts(indts~=indt);
+                end
+            end
+            current_tri=graph.elements(graph.boundary_elems(initInterind)).neighbours(indt);
+            if current_tri==0
                 continue;
             end
             
             
-            % now start line search from indes bb.
-            % lets get the intersection of that boundary element
-            conn_list=graph.elements(graph.boundary_elems(bb)).neighbours;
-            d=lineTriangleIntersectLength(ray,nodes(graph.elements(graph.boundary_elems(bb)).nodeId,:));
-            TRIvals(graph.boundary_elems(bb))=TRIvals(graph.boundary_elems(bb))+d*proj(ii,jj,k);
-            % keep track of deleted elemets
-            deleted=[];
-            while ~isempty(conn_list)
-                % pop next element
-                current_tri=conn_list(1);
-                conn_list(1)=[];
-                deleted=sort([deleted current_tri]);
-                
-                % does it intersect?
-                d=lineTriangleIntersectLength(ray,nodes(graph.elements(current_tri).nodeId,:));
-                
-                % id it doesnt, skip maths, go to the next element.
-                if d==-1
-                    continue
+            %
+            
+            prev_tri=graph.boundary_elems(initInterind);
+            notneighb=false;
+            safe=0;
+            startplot=0;
+            sumt=single(0);
+            while (~notneighb&&safe<=size(graph.elements,2))
+                safe=safe+1;
+                if(safe==size(graph.elements,2))
+                    warning(['Safe distance past:', num2str(ii),' ',  num2str(jj)]);
                 end
+                t2prev=t2;
+                t1prev=t1;
                 
-                % compute that intersection.
-                TRIvals(current_tri)=TRIvals(current_tri)+d*proj(ii,jj,k);
+                [t]=lineTriangleIntersectLength2_safe((ray),(nodes(graph.elements(current_tri).nodeId,:)),0);
+                if nnz(t)<=1
+                    epsilon=1e-5;
+                    while nnz(t)<=1
+                        disp(['Safety measure triggered on RAY:',num2str(ii),' ',num2str(jj) ,' Elem: ',num2str(current_tri)]);
+                        [t]=lineTriangleIntersectLength2_safe(ray,nodes(graph.elements(current_tri).nodeId,:),epsilon);
+                        epsilon=epsilon*10;
+                    end
+                    %                     disp(['Single intersection found on RAY:',num2str(ii),' ',num2str(jj) ,' TRI:',num2str(current_tri)]);
+                end
+                %                 t=round(t*1000000)/1000000;
+                [t2,indt]=max(t);
+                [t1]=min(t+2*(t==0));
+                if abs(t2-t1)<1e-8
+                    t2=t1;
+                    t(indt)=t1;
+                end
+                if abs(t2prev-t1)>1e-5
+                    disp(['Fishy back-step on RAY:',num2str(ii),' ',num2str(jj) ,' Elem: ',num2str(current_tri)])
+                    disp(t)
+                    break;
+                end
+                sumt=sumt+(t2-t1);
+                %                 intersectPoints(1,:)=t1*vecline; %+line(1,:)
+                %                 intersectPoints(2,:)=t2*vecline; %+line(1,:)
+                if sum(t)~=0
+                    %                     disp(['Elem: ',num2str(current_tri),' t1: ',num2str(t1,8),' t2: ',num2str(t2,8)]);
+                    %                     disp(t)
+                    d=(t2-t1)*norm(vecline);
+                    %                     d=sqrt(sum((intersectPoints(2,:)-intersectPoints(1,:)) .^2) );
+                    %                     if current_tri==3054
+                    %                         startplot=1;
+                    %                         hold on
+                    %                         line(ray(:,1),ray(:,2),ray(:,3),'Color','r');axis([40    82   -10     8   -90     0]);
+                    %                         view(-7,12);
+                    %                     end
+                    %                     if startplot&& d~=0
+                    %
+                    %                         tetramesh(triangulation(TRI(current_tri,:),nodes(:,1),nodes(:,2),nodes(:,3)),'facealpha',0.1,'FaceColor','g','edgecolor','k');ax=axis;
+                    %                         axis square
+                    %
+                    %                         plot3([intersectPoints(1,1)+ray(1,1) intersectPoints(2,1)+ray(1,1)],...
+                    %                             [intersectPoints(1,2)+ray(1,2) intersectPoints(2,2)+ray(1,2)],...
+                    %                             [intersectPoints(1,3)+ray(1,3) intersectPoints(2,3)+ray(1,3)],'b','linewidth',2);
+                    % %
+                    % %                         pause();
+                    %
+                    %                     end
+                    
+                    
+%                     proj(ii,jj,k)=proj(ii,jj,k)+d*TRIvals(current_tri);
+                    TRIvals(current_tri)=TRIvals(current_tri)+proj(ii,jj,k)*d;
+                    if t1==t2
+                        if graph.elements(current_tri).neighbours(indt)==prev_tri
+                            indts=find(t==t1);
+                            indt=indts(indts~=indt);
+                        end
+                    end
+                    
+                    prev_tri=current_tri;
+                    current_tri= graph.elements(current_tri).neighbours(indt);
+                    %                     disp(current_tri)
+                    if current_tri==0
+                        if abs(t2-tmax)>=1e-4
+                            disp(['Premature Zero neighbour found on RAY:',num2str(ii),' ',num2str(jj) ,' TRI:',num2str(prev_tri)]);
+                        end
+                        break;
+                    end
+                    continue;
+                end
+                notneighb=true;
+                disp(['Maximum safe iterations RAY:',num2str(ii),' ',num2str(jj) ,' safe:',num2str(safe)]);
                 
-                newtri= graph.elements(current_tri).neighbours;
                 
-                % Add next neighbours to the list, but make sure that they have
-                % not been deleted, nor are they already in the list
-                aux=newtri(~ismembc(newtri,deleted));                          % https://stackoverflow.com/questions/8159449/a-faster-way-to-achieve-what-intersect-is-giving-me
-                conn_list=[conn_list;aux(~ismembc(aux,conn_list))];            % faster setdiff
-                conn_list=sort(conn_list);
+            end
+            if safe>size(graph.elements,2)
+%                 proj(ii,jj,k)=-1;
             end
         end
     end

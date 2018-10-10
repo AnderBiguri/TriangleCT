@@ -14,21 +14,24 @@ end
 % preallocate.
 graph.elements(size(TRI,1)).neighbours=[];
 
-
+n=neighbors(triangulation(TRI,points));
 % For each element, find its node Ids and neighbouring elements
 for ii=1:size(TRI,1)
-    nodeids=TRI(ii,:);
-    elem=[];
-    for jj=1:(nD+1)
-        [iind,~]=find(nodeids(jj)==TRI);
-        elem=[elem; iind];
-    end
-    u = unique(elem);
+%     nodeids=TRI(ii,:);
+%     elem=[];
+%     for jj=1:(nD+1)
+%         [iind,~]=find(nodeids(jj)==TRI); % this is 75%
+%         elem=[elem; iind];
+%     end
+%     u = unique(elem);
+%     
     
+%     graph.elements(ii).neighbours = int32((u(histc(elem,u)==nD)));
+    aux=n(ii,:);
+    aux(isnan(aux))=[];
+    graph.elements(ii).neighbours=aux;
+    graph.elements(ii).nodeId=uint32(sort(TRI(ii,:)));
     
-    graph.elements(ii).neighbours = uint32(sort(u(histc(elem,u)==nD)));
-    
-    graph.elements(ii).nodeId=uint32(TRI(ii,:));
     
     for jj=1:nD+1
         graph.nodes(TRI(ii,jj)).neighbour_elems=uint32([graph.nodes(TRI(ii,jj)).neighbour_elems,ii]);
@@ -39,6 +42,30 @@ for ii=1:size(TRI,1)
 %     assert(length(graph.elements(ii).neighbours)<=(nD+1) && length(graph.elements(ii).neighbours)>=nD);
 end
 
+% sort neighbours
+for ii=1:size(TRI,1)
+    ind=[1 2 3; 1 2 4; 1 3 4; 2 3 4];
+    nodes=graph.elements(ii).nodeId;
+    newind=zeros(4,1);
+    for jj=1:length(graph.elements(ii).neighbours)
+        nnodes=graph.elements(graph.elements(ii).neighbours(jj)).nodeId;
+        for kk=1:4
+            if sum(ismember(nodes(ind(kk,:)),nnodes))==3
+                newind(kk)=jj;
+            end
+        end
+    end
+    neighbours=zeros(1,4,'int32');
+    for jj=1:4
+        if newind(jj)~=0
+            neighbours(jj)=graph.elements(ii).neighbours(newind(jj));
+        else
+            neighbours(jj)=0;
+        end
+    end
+    graph.elements(ii).neighbours=neighbours;
+end
+
 
 for ii=1:length(graph.nodes)
      graph.nodes(ii).neighbour_elems=sort(graph.nodes(ii).neighbour_elems);
@@ -47,11 +74,11 @@ end
 % Check which of the elements lie in a boundary of the mesh
 boundary=[];
 for ii=1:size(TRI,1)
-   if length(graph.elements(ii).neighbours)==nD
+   if nnz(graph.elements(ii).neighbours)<nD+1
        boundary=[boundary ii];
    end
 end
-graph.boundary_elems=uint32(boundary);
+graph.boundary_elems=int32(boundary);
 
 
 end

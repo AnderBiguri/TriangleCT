@@ -19,7 +19,6 @@ function pts=populateEdges(fv,spacing)
 pts=[];
 nD=3;
 for jj=1:size(fv.faces,1)
-    hold on
     % get elemet neigbrous
     nodeids=fv.faces(jj,:);
     elem=[];
@@ -71,7 +70,6 @@ for jj=1:size(fv.faces,1)
             continue
         end
         pts=[pts; eqline(tri(ii,:),tri(mod(ii,3)+1,:),t)];
-        plot3(pts(:,1),pts(:,2),pts(:,3),'r.')
 
     end
 

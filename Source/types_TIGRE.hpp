@@ -73,9 +73,9 @@ struct  Geometry {
     float unitZ;
     
     //rotation angle for euler (ZYZ)
-    float alpha;
-    float theta;
-    float psi;
+    double alpha;
+    double theta;
+    double psi;
     // Centre of Rotation correction.
     float* COR;
     //Maximum length of cube
@@ -88,5 +88,10 @@ struct  Geometry {
     float x;
     float y;
     float z;
+};
+ struct vec3d{
+    double x;
+    double y;
+    double z;
 };
 #endif
