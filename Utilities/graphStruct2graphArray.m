@@ -1,6 +1,6 @@
 function [nodes,elements,neighbours,boundary]=graphStruct2graphArray(graph)
 
-nodes=double(csl2mat(graph.nodes.positions));
+nodes=(csl2mat(graph.nodes.positions));
 nodes=nodes.';
 nodes=nodes(:); 
 

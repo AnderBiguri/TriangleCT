@@ -15,7 +15,7 @@
 
 void graphForwardRay(float const * const  image,  Geometry geo, 
                          const double * angles,const unsigned int nangles, 
-                         const double* nodes,const unsigned long nnodes,
+                         const float* nodes,const unsigned long nnodes,
                          const unsigned long* elements,const unsigned long nelements,
                          const long* neighbours,const unsigned long nneighbours,
                          const unsigned long* boundary,const unsigned long nboundary,
@@ -34,6 +34,6 @@ void bruteForwardRay(float const * const  image,  Geometry geo, const double * a
 void cudaGraphMalloc(const Graph* inGraph, Graph **outGraph, Graph** outGraphHost, Element ** outElementHost, Node** outNodeHost);
 void cudaGraphFree(Graph** tempHostGraph, Element** tempHostElement, Node** tempHostNode );
 
-void computeGeomtricParams(const Geometry geo,vec3d * source, vec3d* deltaU, vec3d* deltaV, vec3d* originUV,unsigned int idxAngle);
-void eulerZYZ(Geometry geo,  vec3d* point);
+void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle);
+void eulerZYZ(Geometry geo,  vec3* point);
 #endif

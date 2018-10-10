@@ -2,13 +2,13 @@ clear;clc;
 InitMesh
 close all
 %% Load data
-fv=stlread('Models/BLOCK1.stl');
+fv=stlread('Cheese_Doorstop_Pyramid_Cleats.stl');
 fv.vertices(:,1)=fv.vertices(:,1)+[min(fv.vertices(:,1))-max(fv.vertices(:,1))]/2;
 fv.vertices(:,2)=fv.vertices(:,2)+[min(fv.vertices(:,2))-max(fv.vertices(:,2))]/2;
 fv.vertices(:,3)=fv.vertices(:,3)+[min(fv.vertices(:,3))-max(fv.vertices(:,3))]/2;
 
 %% plot it
-vis=0;
+vis=1;
 if vis
 patch(fv,'FaceColor',       [0.8 0.8 1.0], ...
          'FaceAlpha',       1,           ...
@@ -25,7 +25,7 @@ axis('image');
 view([-135 35]);
 end
 % return
-% fv=fixSTL(fv);
+fv=fixSTL(fv);
 %%  Lets make a 3D cuboid out of it. 
 
 % Range of the box
@@ -87,7 +87,7 @@ close all
 cla
 hold on
 axis equal
-axis([-100 100 -20 20 -70 70])
+% axis([-100 100 -20 20 -70 70])
 
 [F,P]=freeBoundary( triangulation(TRI(trivals>0,:),vertices));
 trisurf(F,P(:,1),P(:,2),P(:,3), ...

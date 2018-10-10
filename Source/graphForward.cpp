@@ -21,7 +21,7 @@
 #include "graph.hpp"
 #include "graph_ray_projection.hpp"
 #include <string.h>
-
+#include <time.h>
 Geometry initGeo(mxArray* geometryMex, const unsigned int nangles);
 Graph initGraph(mxArray* graphMex);
 void unfuckGraphTemp(Graph* graph);
@@ -34,6 +34,7 @@ void mexFunction(int  nlhs , mxArray *plhs[],
         int nrhs, mxArray const *prhs[])
 {
     
+    clock_t begin = clock();
     // Check number of inputs
     if (nrhs!=7) {
         mexErrMsgIdAndTxt("MEX:graphForward:InvalidInput", "Invalid number of inputs to MEX file.");
@@ -81,7 +82,7 @@ void mexFunction(int  nlhs , mxArray *plhs[],
      *********************** Fifth Input: vertices***************************
      ********************************************************************/
     mxArray const * const verticesMex = prhs[4];
-    double const * const vertices = static_cast<double const *>(mxGetData(verticesMex));
+    float const * const vertices = static_cast<float const *>(mxGetData(verticesMex));
     const mwSize*  mwSizevertices=mxGetDimensions(verticesMex);
     unsigned long nvertices=mwSizevertices[0]/3;
      /*********************************************************************
@@ -101,7 +102,11 @@ void mexFunction(int  nlhs , mxArray *plhs[],
     unsigned long nboundary=mwSizeboundary[0];
     
     
+    clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+//     mexPrintf("Time to grab poiters to variables: %f\n",time_spent);
     
+    begin=clock();
     /*********************************************************************
      *********************** Create output   ********************************
      ********************************************************************/
@@ -121,7 +126,12 @@ void mexFunction(int  nlhs , mxArray *plhs[],
     /*********************************************************************
      *********************** Run code ********************************
      ********************************************************************/
-  
+     end = clock();
+     time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+//     mexPrintf("Time to generate output memory: %f\n",time_spent);
+    
+        begin=clock();
+
     graphForwardRay(img,geo,
                         angles,nangles,
                         vertices,nvertices,
@@ -129,6 +139,10 @@ void mexFunction(int  nlhs , mxArray *plhs[],
                         neighbours,nneighbours,
                         boundary,nboundary,
                         result);
+    end = clock();
+    time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+//     mexPrintf("Time run CUDA code: %f\n",time_spent);
+    
 //     bruteForwardRay(img,geo,angles,nangles,graph,result);
 
     

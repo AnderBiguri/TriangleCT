@@ -4,9 +4,11 @@
 
 // This flag activates timing of the code
 #define DEBUG_TIME 1
+
+
 #define EPSILON 0.000001
 
-// Cuda error checking.
+// Cuda error checking fucntion.
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -21,10 +23,10 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     }
 }
 
-__global__ void testKernel(const Graph * graph,float * d_res){
-    d_res[0]=(float)graph->node[1].position[0];
-    
-};
+
+/**************************************************************************
+ *********************** cross product in CUDA ****************************
+ *************************************************************************/
 __device__ __inline__ vec3d cross(const vec3d a,const vec3d b)
 {
     vec3d c;
@@ -33,9 +35,9 @@ __device__ __inline__ vec3d cross(const vec3d a,const vec3d b)
     c.z= a.x*b.y - a.y*b.x;
     return c;
 }
-/*********************************************************************
- *********************** Dot product in CUDA ************************
- ********************************************************************/
+/**************************************************************************
+ *********************** Dot product in CUDA ******************************
+ *************************************************************************/
 __device__ __inline__ double dot(const vec3d a, const vec3d b)
 {
     
@@ -43,7 +45,9 @@ __device__ __inline__ double dot(const vec3d a, const vec3d b)
 }
 
 
-
+/**************************************************************************
+ *********************** maximum value in a 4 valued array of floats*******
+ *************************************************************************/
 __device__ __inline__ float max4(float *t,int* indM){
     float max=0;
     *indM=-1;
@@ -55,7 +59,9 @@ __device__ __inline__ float max4(float *t,int* indM){
     }
     return max;
 }
-
+/**************************************************************************
+ ********* minimum nonzero value in a 4 valued array of float *************
+ *************************************************************************/
 __device__ __inline__ float min4nz(float *t){
     float min=1;
     for(int i=0;i<4;i++)
@@ -63,6 +69,9 @@ __device__ __inline__ float min4nz(float *t){
         return min;
 }
 
+/**************************************************************************
+ ********* number of non zeroes in a 4 legth float array **** *************
+ *************************************************************************/
 __device__ __inline__ int nnz(float *t){
     int nz=0;
     for(int i=0;i<4;i++){
@@ -74,29 +83,15 @@ __device__ __inline__ int nnz(float *t){
     
 }
 
-__device__ vec3 double2float(vec3d in){
-  vec3 out;
-  out.x=(float)in.x;
-  out.y=(float)in.y;
-  out.z=(float)in.z;
-  return out;
-}
-__device__ vec3d float2double(vec3 in){
-  vec3d out;
-  out.x=(double)in.x;
-  out.y=(double)in.y;
-  out.z=(double)in.z;
-  return out;
-}
-/*********************************************************************
- *********************** Moller trumbore ************************
- ********************************************************************/
-__device__ __inline__ float moller_trumbore(const vec3d ray1, const vec3d ray2,
+
+/**************************************************************************
+ *********************** Moller trumbore **********************************
+ **************************************************************************/
+__device__ __inline__ float moller_trumbore(const vec3 ray1, const vec3 ray2,
         const vec3d trip1,const vec3d trip2,const vec3d trip3, const float safetyEpsilon){
     
-//     vec3 fray1,fray2,ftrip1,ftrip2,ftrip3;
-//     fray1=double2float(ray1);
-//     fray2=double2float(ray2);
+
+    
     
     vec3d direction,e1,e2;
     
@@ -130,21 +125,18 @@ __device__ __inline__ float moller_trumbore(const vec3d ray1, const vec3d ray2,
         // the intersection is outside of the triangle
         return 0.0;
     }
-//     mexPrintf("%.16f %.16f %.16f\n",q.x,q.y,q.z);
-//     mexPrintf("%.16f  %.16f %.16f %.16f %.16f\n",a,f,u,v,f*dot(e2,r));
     return f*dot(e2,r);
     
     
     
 }
 
-/*********************************************************************
- **********************Tetra-line intersection************************
- ********************************************************************/
+/**************************************************************************
+ ***************************Tetra-line intersection************************
+ *************************************************************************/
 
-// TODO: check if adding if-clauses after each moller trumbore is better of worse.
-__device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,const double *vertices,
-        const vec3d ray1, const vec3d ray2,
+__device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,const float *vertices,
+        const vec3 ray1, const vec3 ray2,
         const unsigned long elementId,float *t,bool computelenght,const float safetyEpsilon){
     
     unsigned long auxNodeId[4];
@@ -203,8 +195,11 @@ __device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,cons
     }
 }
 
+/**************************************************************************
+ ***************************Intersection between line-box******************
+ *************************************************************************/
 
-__device__ bool rayBoxIntersect(const vec3d ray1, const vec3d ray2,const vec3d nodemin, const vec3d nodemax){
+__device__ bool rayBoxIntersect(const vec3 ray1, const vec3 ray2,const vec3 nodemin, const vec3 nodemax){
     vec3 direction;
     direction.x=ray2.x-ray1.x;
     direction.y=ray2.y-ray1.y;
@@ -253,7 +248,8 @@ __device__ bool rayBoxIntersect(const vec3d ray1, const vec3d ray2,const vec3d n
     if ((tmin > tzmax) || (tzmin > tmax)){
         return false;
     }
-// If we wanted the ts as output
+    // If we wanted the ts as output
+////
 // if (tzmin > tmin){
 //     tmin = tzmin;
 // }
@@ -261,17 +257,17 @@ __device__ bool rayBoxIntersect(const vec3d ray1, const vec3d ray2,const vec3d n
 // if (tzmax < tmax){
 //     tmax = tzmax;
 // }
-    
+////
     return true;
 }
-/*********************************************************************
- ******Fucntion to detect the first triangle to expand the graph******
- ********************************************************************/
+/**************************************************************************
+ ******Fucntion to detect the first triangle to expand the graph***********
+ *************************************************************************/
 
-__global__ void initXrays(const unsigned long* elements, const double* vertices,
+__global__ void initXrays(const unsigned long* elements, const float* vertices,
         const unsigned long *boundary,const unsigned long nboundary,
         float * d_res, Geometry geo,
-        const vec3d source,const vec3d deltaU,const vec3d deltaV,const vec3d uvOrigin,const vec3d nodemin,const vec3d nodemax)
+        const vec3 source,const vec3 deltaU,const vec3 deltaV,const vec3 uvOrigin,const vec3 nodemin,const vec3 nodemax)
 {
     
     
@@ -281,18 +277,17 @@ __global__ void initXrays(const unsigned long* elements, const double* vertices,
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
     
-    // Read initial position.
-    // Is having this here going to speed up because the below maths can be done while waiting to read?
-    // Create ray
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
 
-    vec3d det;
     
+    // Compute detector position
+    vec3 det;
     det.x=(uvOrigin.x+pixelU*deltaU.x+pixelV*deltaV.x);
     det.y=(uvOrigin.y+pixelU*deltaU.y+pixelV*deltaV.y);
     det.z=(uvOrigin.z+pixelU*deltaU.z+pixelV*deltaV.z);
     
+    // Should we even try? if the ray does not cross the boundary, dont try
     bool crossBound=rayBoxIntersect(source, det, nodemin,nodemax);
     if (!crossBound){
         d_res[idx]=-1.0f;
@@ -301,12 +296,13 @@ __global__ void initXrays(const unsigned long* elements, const double* vertices,
     
     
     
-    // Check intersection with boundary
+    // Check intersection with all elements in the boudnary
     unsigned long notintersect=nboundary;
     float t[4];
     float t1,tinter=10000.0f;
     float safetyEpsilon=0.0000001f;
     unsigned long crossingID=0;
+    //Check with all elements, and keep the one that gives lowest parameter
     while(notintersect==nboundary){
         notintersect=0;
         for(unsigned long i=0 ;i<nboundary;i++){
@@ -315,11 +311,8 @@ __global__ void initXrays(const unsigned long* elements, const double* vertices,
             if (nnz(t)==0){
                 notintersect++;
             }else{
-                
                 t1=min4nz(t);
-                
                 if (t1<tinter){
-                    
                     tinter=t1;
                     crossingID=i;
                 }
@@ -329,15 +322,14 @@ __global__ void initXrays(const unsigned long* elements, const double* vertices,
     }
     d_res[idx]=(float)crossingID;
     
-    // Should I put the kernels together, or separate? TODO
     
 }
-/*********************************************************************
- ******************The mein projection fucntion **********************
- ********************************************************************/
+/**************************************************************************
+ ******************The mein projection fucntion ***************************
+ *************************************************************************/
 
-__global__ void graphProject(const unsigned long *elements, const double *vertices,const unsigned long *boundary,const long *neighbours, const float * d_image, float * d_res, Geometry geo,
-        vec3d source, vec3d deltaU, vec3d deltaV, vec3d uvOrigin){
+__global__ void graphProject(const unsigned long *elements, const float *vertices,const unsigned long *boundary,const long *neighbours, const float * d_image, float * d_res, Geometry geo,
+        vec3 source, vec3 deltaU, vec3 deltaV, vec3 uvOrigin){
     
     unsigned long  y = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned long  x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -345,39 +337,43 @@ __global__ void graphProject(const unsigned long *elements, const double *vertic
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
     
-    // Read initial position.
-    // Is having this here going to speed up because the below maths can be done while waiting to read?
-    // Create ray
+    
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
 
     
-    // Read initial position.
-    // Is having this here going to speed up because the below maths can be done while waiting to read?
+    // Read initial position. Generate auxiliar variables for element tracking
     long current_element=(long)d_res[idx];
     long previous_element;
     long aux_element;
-    // Create ray
 
-    vec3d det;
+    
+    //  Get the coordinates of the detector for this kernel
+    vec3 det;
     
     det.x=(uvOrigin.x+pixelU*deltaU.x+pixelV*deltaV.x);
     det.y=(uvOrigin.y+pixelU*deltaU.y+pixelV*deltaV.y);
     det.z=(uvOrigin.z+pixelU*deltaU.z+pixelV*deltaV.z);
     
+    
+    // If the current element is "none", then we are done, we are not itnersecting the mesh
     if (current_element==-1){
         //no need to do stuff
         d_res[idx]=0.0f;
         return;
     }
     
+    // initialize variables for the lengths and resutl
     float result=0.0f;
-    
     float length,t1,t2;
     float t[4];
     int indM;
     bool isIntersect;
     
+    
+    // Lets compute the first intersection outside the main loop. 
+    // The structure of this loop has to be identical to the one in InitXrays() or 
+    // there is risk of not getting the same floating point value bit by bit. 
     float safeEpsilon=0.00001f;
     isIntersect=tetraLineIntersect(elements,vertices,source,det,boundary[current_element],t,true,0.0f);
     while(!isIntersect){
@@ -387,15 +383,15 @@ __global__ void graphProject(const unsigned long *elements, const double *vertic
             safeEpsilon*=10;
         }
     }
+    // Reset the safety variable
     safeEpsilon=0.00001f;
+    
+    // Find the maximum and minimum non-zero intersection parameters
     t2=max4(t,&indM);
     t1=min4nz(t);
-//      mexPrintf("%.16f %.16f\n",t2,t1);
-//     mexPrintf("%.16f %.16f %.16f\n",source.x,source.y,source.z);
-//     mexPrintf("%.16f %.16f %.16f\n",det.x,det.y,det.z);
-    
-    
-    vec3d direction,p1,p2;
+
+    // Lets get the ray (direction) and the current intersection length. 
+    vec3 direction,p1,p2;
     direction.x=det.x-source.x;     direction.y=det.y-source.y;     direction.z=det.z-source.z;
     p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
     p1.x=direction.x* (t1);  p1.y=direction.y* (t1); p1.z=direction.z* (t1);
@@ -403,11 +399,14 @@ __global__ void graphProject(const unsigned long *elements, const double *vertic
     length=sqrt((p2.x-p1.x)*(p2.x-p1.x)+(p2.y-p1.y)*(p2.y-p1.y)+(p2.z-p1.z)*(p2.z-p1.z));
     
     
-    
+    // Start accumulating the result
     result=d_image[boundary[current_element]]*length;
     
+    // If t1 and t2 are the same, we need to make sure that the one we choose as 
+    // t2 (the one that will lead us to the next element) is the correct one.
+    // Otherwise we will go out of the image, and the code will end. 
+    // This piece of code makes sure that is checked and swaps them otherwise.
     if(t1==t2){
-        
         aux_element=neighbours[boundary[current_element]*4+indM];
         if(aux_element==-1){
             int auxind;
@@ -420,9 +419,10 @@ __global__ void graphProject(const unsigned long *elements, const double *vertic
         }
     }
     
-    
+    // Grab the index of the next elements and save the current one for further checking
     previous_element=boundary[current_element];
     current_element=neighbours[boundary[current_element]*4+indM];
+    // if its "none" then thats it, we are done.
     if (current_element==-1){
         d_res[idx]=result;
         return;
@@ -431,11 +431,15 @@ __global__ void graphProject(const unsigned long *elements, const double *vertic
     float sumt;
     unsigned long c=0;
     bool noNeighbours=false;
-    while(!noNeighbours && c<15000){
+    while(!noNeighbours && c<5000){ // RANDOM safe distance, change to something sensible
+        // c is a counter to avoid infinite loops
         c++;
-        // get instersection and lengths.
+        // Check intersections we now this one is intersected )because it shares a face with the previosu one that was intersected)
         isIntersect=tetraLineIntersect(elements,vertices,source,det,(unsigned int)current_element,t,true,0.0f);
         while(!isIntersect){
+            // If intersection failed, then lets slightly increase the size of the triangle 
+            // (not really, we increase the bounds of acceptable intersection values)
+            // We can do it without safety becasue we already know it must happen.
             isIntersect=tetraLineIntersect(elements,vertices,source,det,(unsigned int)current_element,t,true,safeEpsilon);
             if (nnz(t)<=1){
                 isIntersect=false;
@@ -443,27 +447,35 @@ __global__ void graphProject(const unsigned long *elements, const double *vertic
             }
         }
         safeEpsilon=0.00001f;
+        
+        // Find the maximum and minimum non-zero intersection parameters
         t2=max4(t,&indM);
         t1=min4nz(t);
-//         mexPrintf("%u %.16f %.16f\n",(unsigned int)current_element,t2,t1);
-//         mexPrintf("%.16f \n",(t2-t1));
-        if (fabsf(t2-t1)<0.00000001){
-            t2=t1;
-            t[indM]=t1;
-//             mexPrintf("hello! ");
-        }
-        sumt=0;
-        for(int i=0;i<4;i++){
-            sumt+=t[i];
-        }
+        // if they are very similar just treat them as if they were the same
+        // This was necesary in a previosu version, Its left here just in case its neeed again.
         
+//////
+//         if (fabsf(t2-t1)<0.00000001){
+//             t2=t1;
+//             t[indM]=t1;
+//         }
+//////
+        
+        // Are they all zero?
+        sumt=t[0]+t[1]+t[2]+t[3];
         if (sumt!=0.0){
-            
+           // compute intersection length and update result integral
             p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
             p1.x=direction.x* (t1);  p1.y=direction.y* (t1); p1.z=direction.z* (t1);
             length=sqrt((p2.x-p1.x)*(p2.x-p1.x)+(p2.y-p1.y)*(p2.y-p1.y)+(p2.z-p1.z)*(p2.z-p1.z));
-            // if (t1==t2); skip following line? timetest
             result+=d_image[current_element]*length;
+            
+            // Now lets make sure we can find the next element correctly
+            
+            // If t1 and t2 are the same, we need to make sure that the one we choose as 
+            // t2 (the one that will lead us to the next element) is the correct one.
+            // Otherwise we will go backwards and get trapped in an infinite loop 
+            // This piece of code makes sure this does not happen.
             if(t1==t2){
                 
                 aux_element=neighbours[current_element*4+indM];
@@ -472,39 +484,43 @@ __global__ void graphProject(const unsigned long *elements, const double *vertic
                     for(int i=0;i<4;i++){
                         if(indM!=i && t[i]==t1){
                             auxind=i;
-//                            mexPrintf("hello! ");
                         }
                     }
                     indM=auxind;
                 }
             }
+            // Update the elements
             previous_element=current_element;
             current_element=neighbours[current_element*4+indM];
-//             mexPrintf("%ld\n",current_element);
+            
+            // if we are out then thats it, we are done.
             if (current_element==-1){
                 d_res[idx]=result;
                 return;
             }
             continue;
         }
+        // If there was no intrsection, then we are out. Can this even happen?
         noNeighbours=true;
     }//endwhile
+    
+    // It should never get here, ever.
     d_res[idx]=-1.0;
     return;
 }
-/*********************************************************************
- *********************** Main fucntion ************************
- ********************************************************************/
+/**************************************************************************
+ *********************** Main fucntion ************************************
+ *************************************************************************/
 void graphForwardRay(float const * const  image,  Geometry geo,
                     const double * angles,const unsigned int nangles,
-                    const double* nodes,const unsigned long nnodes,
+                    const float* nodes,const unsigned long nnodes,
                     const unsigned long* elements,const unsigned long nelements,
                     const long* neighbours,const unsigned long nneighbours,
                     const unsigned long* boundary,const unsigned long nboundary,
                     float ** result)
 {
     float time;
-    float timecopy, timekernel;
+    float timecopy=0, timekernel=0,timeaux;
     cudaEvent_t start, stop;
     
      if (DEBUG_TIME){
@@ -513,7 +529,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         cudaEventCreate(&stop);
         cudaEventRecord(start, 0);
     }
-    
+    // First send all the relevant data to CUDA, and allocate enough memory for the result
     size_t num_bytes_proj = geo.nDetecU*geo.nDetecV * sizeof(float);
     float * d_res;
     gpuErrchk(cudaMalloc((void **)&d_res,num_bytes_proj));
@@ -523,8 +539,8 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     gpuErrchk(cudaMalloc((void **)&d_image,num_bytes_img));
     gpuErrchk(cudaMemcpy(d_image,image,num_bytes_img,cudaMemcpyHostToDevice));
     
-    size_t num_bytes_nodes = nnodes*3*sizeof(double);
-    double * d_nodes;
+    size_t num_bytes_nodes = nnodes*3*sizeof(float);
+    float * d_nodes;
     gpuErrchk(cudaMalloc((void **)&d_nodes,num_bytes_nodes));
     gpuErrchk(cudaMemcpy(d_nodes,nodes,num_bytes_nodes,cudaMemcpyHostToDevice));
     
@@ -550,8 +566,8 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         
         mexPrintf("Time to memcpy:  %3.1f ms \n", time);
     }
-    // Replace by a reduction
-    vec3d nodemin, nodemax;
+    // Replace by a reduction (?)
+    vec3 nodemin, nodemax;
     nodemin.x=nodes[0];
     nodemin.y=nodes[1];
     nodemin.z=nodes[2];
@@ -575,8 +591,8 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     dim3 grid((geo.nDetecU+divU-1)/divU,(geo.nDetecV+divV-1)/divV,1);
     dim3 block(divU,divV,1);
     
-    vec3d source, deltaU, deltaV, uvOrigin;
-    
+    vec3  deltaU, deltaV, uvOrigin;
+    vec3 source;
     for (unsigned int i=0;i<nangles;i++){
         geo.alpha=angles[i*3];
         geo.theta=angles[i*3+1];
@@ -599,10 +615,11 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         gpuErrchk(cudaDeviceSynchronize());
         
         if (DEBUG_TIME){
+            
             cudaEventRecord(stop, 0);
             cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&timekernel, start, stop);
-            
+            cudaEventElapsedTime(&timeaux, start, stop);
+            timekernel+=timeaux;
             
             cudaEventCreate(&start);
             cudaEventCreate(&stop);
@@ -614,14 +631,15 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         if (DEBUG_TIME){
             cudaEventRecord(stop, 0);
             cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&timecopy, start, stop);
+            cudaEventElapsedTime(&timeaux, start, stop);
+            timecopy+=timeaux;
         }
     }
     
     
     if (DEBUG_TIME){
-        mexPrintf("Time of Kenrel:  %3.1f ms \n", timekernel*nangles);
-        mexPrintf("Time of memcpy to Host:  %3.1f ms \n", timecopy*nangles);
+        mexPrintf("Time of Kenrel:  %3.1f ms \n", timekernel);
+        mexPrintf("Time of memcpy to Host:  %3.1f ms \n", timecopy);
         
     }
     
@@ -650,6 +668,82 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     
 }
 
+
+
+// TODO: quite a lot of geometric transforms.
+void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle){
+    
+    vec3 auxOriginUV;
+    vec3 auxDeltaU;
+    vec3 auxDeltaV;
+    auxOriginUV.x=-(geo.DSD[idxAngle]-geo.DSO[idxAngle]);
+    // top left
+    auxOriginUV.y=-geo.sDetecU/2+/*half a pixel*/geo.dDetecU/2;
+    auxOriginUV.z=geo.sDetecV/2-/*half a pixel*/geo.dDetecV/2;
+    
+    //Offset of the detector
+    auxOriginUV.y=auxOriginUV.y+geo.offDetecU[idxAngle];
+    auxOriginUV.z=auxOriginUV.z+geo.offDetecV[idxAngle];
+    
+    // Change in U
+    auxDeltaU.x=auxOriginUV.x;
+    auxDeltaU.y=auxOriginUV.y+geo.dDetecU;
+    auxDeltaU.z=auxOriginUV.z;
+    //Change in V
+    auxDeltaV.x=auxOriginUV.x;
+    auxDeltaV.y=auxOriginUV.y;
+    auxDeltaV.z=auxOriginUV.z-geo.dDetecV;
+    
+    vec3 auxSource;
+    auxSource.x=geo.DSO[idxAngle];
+    auxSource.y=0;
+    auxSource.z=0;
+    
+    // rotate around axis.
+    eulerZYZ(geo,&auxOriginUV);
+    eulerZYZ(geo,&auxDeltaU);
+    eulerZYZ(geo,&auxDeltaV);
+    eulerZYZ(geo,&auxSource);
+    
+    // Offset image (instead of offseting image, -offset everything else)
+    auxOriginUV.x  =auxOriginUV.x-geo.offOrigX[idxAngle];     auxOriginUV.y  =auxOriginUV.y-geo.offOrigY[idxAngle];     auxOriginUV.z  =auxOriginUV.z-geo.offOrigZ[idxAngle];
+    auxDeltaU.x=auxDeltaU.x-geo.offOrigX[idxAngle];           auxDeltaU.y=auxDeltaU.y-geo.offOrigY[idxAngle];           auxDeltaU.z=auxDeltaU.z-geo.offOrigZ[idxAngle];
+    auxDeltaV.x=auxDeltaV.x-geo.offOrigX[idxAngle];           auxDeltaV.y=auxDeltaV.y-geo.offOrigY[idxAngle];           auxDeltaV.z=auxDeltaV.z-geo.offOrigZ[idxAngle];
+    auxSource.x=auxSource.x-geo.offOrigX[idxAngle];           auxSource.y=auxSource.y-geo.offOrigY[idxAngle];           auxSource.z=auxSource.z-geo.offOrigZ[idxAngle];
+    
+    auxDeltaU.x=auxDeltaU.x-auxOriginUV.x;  auxDeltaU.y=auxDeltaU.y-auxOriginUV.y; auxDeltaU.z=auxDeltaU.z-auxOriginUV.z;
+    auxDeltaV.x=auxDeltaV.x-auxOriginUV.x;  auxDeltaV.y=auxDeltaV.y-auxOriginUV.y; auxDeltaV.z=auxDeltaV.z-auxOriginUV.z;
+    
+    *originUV=auxOriginUV;
+    *deltaU=auxDeltaU;
+    *deltaV=auxDeltaV;
+    *source=auxSource;
+    
+    return;
+}
+
+void eulerZYZ(Geometry geo,  vec3* point){
+    vec3 auxPoint;
+    auxPoint.x=point->x;
+    auxPoint.y=point->y;
+    auxPoint.z=point->z;
+    
+    point->x=(+cos(geo.alpha)*cos(geo.theta)*cos(geo.psi)-sin(geo.alpha)*sin(geo.psi))*auxPoint.x+
+            (-cos(geo.alpha)*cos(geo.theta)*sin(geo.psi)-sin(geo.alpha)*cos(geo.psi))*auxPoint.y+
+            cos(geo.alpha)*sin(geo.theta)*auxPoint.z;
+    
+    point->y=(+sin(geo.alpha)*cos(geo.theta)*cos(geo.psi)+cos(geo.alpha)*sin(geo.psi))*auxPoint.x+
+            (-sin(geo.alpha)*cos(geo.theta)*sin(geo.psi)+cos(geo.alpha)*cos(geo.psi))*auxPoint.y+
+            sin(geo.alpha)*sin(geo.theta)*auxPoint.z;
+    
+    point->z=-sin(geo.theta)*cos(geo.psi)*auxPoint.x+
+            sin(geo.theta)*sin(geo.psi)*auxPoint.y+
+            cos(geo.theta)*auxPoint.z;
+    
+    
+    
+    
+}
 
 // this is fucking slow......... Copying an image of the same size in bytes is x1000 faster. (measured)
 void cudaGraphMalloc(const Graph* inGraph, Graph **outGraph, Graph** outGraphHost, Element ** outElementHost, Node** outNodeHost){
@@ -738,81 +832,4 @@ void cudaGraphFree(Graph** tempHostGraph, Element** tempHostElement, Node** temp
     gpuErrchk(cudaFree(freeGraph->element));
     
     gpuErrchk(cudaFree(freeGraph->boundary));
-}
-
-
-// TODO: quite a lot of geometric transforms.
-void computeGeomtricParams(const Geometry geo,vec3d * source, vec3d* deltaU, vec3d* deltaV, vec3d* originUV,unsigned int idxAngle){
-    
-    vec3d auxOriginUV;
-    vec3d auxDeltaU;
-    vec3d auxDeltaV;
-    auxOriginUV.x=-(geo.DSD[idxAngle]-geo.DSO[idxAngle]);
-    // top left
-    auxOriginUV.y=-geo.sDetecU/2+/*half a pixel*/geo.dDetecU/2;
-    auxOriginUV.z=geo.sDetecV/2-/*half a pixel*/geo.dDetecV/2;
-    
-    //Offset of the detector
-    auxOriginUV.y=auxOriginUV.y+geo.offDetecU[idxAngle];
-    auxOriginUV.z=auxOriginUV.z+geo.offDetecV[idxAngle];
-    
-    // Change in U
-    auxDeltaU.x=auxOriginUV.x;
-    auxDeltaU.y=auxOriginUV.y+geo.dDetecU;
-    auxDeltaU.z=auxOriginUV.z;
-    //Change in V
-    auxDeltaV.x=auxOriginUV.x;
-    auxDeltaV.y=auxOriginUV.y;
-    auxDeltaV.z=auxOriginUV.z-geo.dDetecV;
-    
-    vec3d auxSource;
-    auxSource.x=geo.DSO[idxAngle];
-    auxSource.y=0;
-    auxSource.z=0;
-    
-    // rotate around axis.
-    eulerZYZ(geo,&auxOriginUV);
-    eulerZYZ(geo,&auxDeltaU);
-    eulerZYZ(geo,&auxDeltaV);
-    eulerZYZ(geo,&auxSource);
-    
-    
-    // Offset image (instead of offseting image, -offset everything else)
-    auxOriginUV.x  =auxOriginUV.x-geo.offOrigX[idxAngle];     auxOriginUV.y  =auxOriginUV.y-geo.offOrigY[idxAngle];     auxOriginUV.z  =auxOriginUV.z-geo.offOrigZ[idxAngle];
-    auxDeltaU.x=auxDeltaU.x-geo.offOrigX[idxAngle];           auxDeltaU.y=auxDeltaU.y-geo.offOrigY[idxAngle];           auxDeltaU.z=auxDeltaU.z-geo.offOrigZ[idxAngle];
-    auxDeltaV.x=auxDeltaV.x-geo.offOrigX[idxAngle];           auxDeltaV.y=auxDeltaV.y-geo.offOrigY[idxAngle];           auxDeltaV.z=auxDeltaV.z-geo.offOrigZ[idxAngle];
-    auxSource.x=auxSource.x-geo.offOrigX[idxAngle];           auxSource.y=auxSource.y-geo.offOrigY[idxAngle];           auxSource.z=auxSource.z-geo.offOrigZ[idxAngle];
-    
-    auxDeltaU.x=auxDeltaU.x-auxOriginUV.x;  auxDeltaU.y=auxDeltaU.y-auxOriginUV.y; auxDeltaU.z=auxDeltaU.z-auxOriginUV.z;
-    auxDeltaV.x=auxDeltaV.x-auxOriginUV.x;  auxDeltaV.y=auxDeltaV.y-auxOriginUV.y; auxDeltaV.z=auxDeltaV.z-auxOriginUV.z;
-    
-    *originUV=auxOriginUV;
-    *deltaU=auxDeltaU;
-    *deltaV=auxDeltaV;
-    *source=auxSource;
-    
-    return;
-}
-
-void eulerZYZ(Geometry geo,  vec3d* point){
-    vec3d auxPoint;
-    auxPoint.x=point->x;
-    auxPoint.y=point->y;
-    auxPoint.z=point->z;
-    
-    point->x=(+cos(geo.alpha)*cos(geo.theta)*cos(geo.psi)-sin(geo.alpha)*sin(geo.psi))*auxPoint.x+
-            (-cos(geo.alpha)*cos(geo.theta)*sin(geo.psi)-sin(geo.alpha)*cos(geo.psi))*auxPoint.y+
-            cos(geo.alpha)*sin(geo.theta)*auxPoint.z;
-    
-    point->y=(+sin(geo.alpha)*cos(geo.theta)*cos(geo.psi)+cos(geo.alpha)*sin(geo.psi))*auxPoint.x+
-            (-sin(geo.alpha)*cos(geo.theta)*sin(geo.psi)+cos(geo.alpha)*cos(geo.psi))*auxPoint.y+
-            sin(geo.alpha)*sin(geo.theta)*auxPoint.z;
-    
-    point->z=-sin(geo.theta)*cos(geo.psi)*auxPoint.x+
-            sin(geo.theta)*sin(geo.psi)*auxPoint.y+
-            cos(geo.theta)*auxPoint.z;
-    
-    
-    
-    
 }

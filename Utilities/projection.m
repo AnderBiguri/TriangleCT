@@ -19,7 +19,6 @@ elements=elements-1;
 neighbours=neighbours-1;
 boundary=boundary-1;
 
-
-proj=graphForward(trivals,geo,angles,elements,nodes,neighbours,boundary);
+proj=graphForward(trivals,geo,angles,elements,(nodes),neighbours,boundary);
 
 end
