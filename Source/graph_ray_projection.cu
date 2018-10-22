@@ -3,8 +3,7 @@
 
 
 // This flag activates timing of the code
-#define DEBUG_TIME 1
-
+#define DEBUG_TIME 0
 
 #define EPSILON 0.000001
 
@@ -90,7 +89,7 @@ __device__ __inline__ int nnz(float *t){
 __device__ __inline__ float moller_trumbore(const vec3 ray1, const vec3 ray2,
         const vec3d trip1,const vec3d trip2,const vec3d trip3, const float safetyEpsilon){
     
-
+    
     
     
     vec3d direction,e1,e2;
@@ -180,18 +179,14 @@ __device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,cons
     l4=moller_trumbore(ray1,ray2,triN1,triN2,triN3,safetyEpsilon);
     
     //dump
-    if(!computelenght){
-        return (l1!=0.0)|(l2!=0.0)|(l3!=0.0)|(l4!=0.0);
+    
+    if ((l1==0.0)&&(l2==0.0)&&(l3==0.0)&&(l4==0.0)){
+        t[0]=0.0;t[1]=0.0;t[2]=0.0;t[3]=0.0;
+        return false;
     }else{
-        //fuck branches, but what can I do ....
-        if ((l1==0.0)&&(l2==0.0)&&(l3==0.0)&&(l4==0.0)){
-            t[0]=0.0;t[1]=0.0;t[2]=0.0;t[3]=0.0;
-            return false;
-        }else{
-            t[0]=l1;t[1]=l2;t[2]=l3;t[3]=l4;
-            // find which one is the intersection
-            return true;
-        }
+        t[0]=l1;t[1]=l2;t[2]=l3;t[3]=l4;
+        // find which one is the intersection
+        return true;
     }
 }
 
@@ -279,7 +274,7 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
-
+    
     
     // Compute detector position
     vec3 det;
@@ -340,13 +335,13 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
-
+    
     
     // Read initial position. Generate auxiliar variables for element tracking
     long current_element=(long)d_res[idx];
     long previous_element;
     long aux_element;
-
+    
     
     //  Get the coordinates of the detector for this kernel
     vec3 det;
@@ -371,9 +366,9 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     bool isIntersect;
     
     
-    // Lets compute the first intersection outside the main loop. 
-    // The structure of this loop has to be identical to the one in InitXrays() or 
-    // there is risk of not getting the same floating point value bit by bit. 
+    // Lets compute the first intersection outside the main loop.
+    // The structure of this loop has to be identical to the one in InitXrays() or
+    // there is risk of not getting the same floating point value bit by bit.
     float safeEpsilon=0.00001f;
     isIntersect=tetraLineIntersect(elements,vertices,source,det,boundary[current_element],t,true,0.0f);
     while(!isIntersect){
@@ -389,8 +384,8 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     // Find the maximum and minimum non-zero intersection parameters
     t2=max4(t,&indM);
     t1=min4nz(t);
-
-    // Lets get the ray (direction) and the current intersection length. 
+    
+    // Lets get the ray (direction) and the current intersection length.
     vec3 direction,p1,p2;
     direction.x=det.x-source.x;     direction.y=det.y-source.y;     direction.z=det.z-source.z;
     p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
@@ -402,9 +397,9 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     // Start accumulating the result
     result=d_image[boundary[current_element]]*length;
     
-    // If t1 and t2 are the same, we need to make sure that the one we choose as 
+    // If t1 and t2 are the same, we need to make sure that the one we choose as
     // t2 (the one that will lead us to the next element) is the correct one.
-    // Otherwise we will go out of the image, and the code will end. 
+    // Otherwise we will go out of the image, and the code will end.
     // This piece of code makes sure that is checked and swaps them otherwise.
     if(t1==t2){
         aux_element=neighbours[boundary[current_element]*4+indM];
@@ -437,7 +432,7 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
         // Check intersections we now this one is intersected )because it shares a face with the previosu one that was intersected)
         isIntersect=tetraLineIntersect(elements,vertices,source,det,(unsigned int)current_element,t,true,0.0f);
         while(!isIntersect){
-            // If intersection failed, then lets slightly increase the size of the triangle 
+            // If intersection failed, then lets slightly increase the size of the triangle
             // (not really, we increase the bounds of acceptable intersection values)
             // We can do it without safety becasue we already know it must happen.
             isIntersect=tetraLineIntersect(elements,vertices,source,det,(unsigned int)current_element,t,true,safeEpsilon);
@@ -464,7 +459,7 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
         // Are they all zero?
         sumt=t[0]+t[1]+t[2]+t[3];
         if (sumt!=0.0){
-           // compute intersection length and update result integral
+            // compute intersection length and update result integral
             p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
             p1.x=direction.x* (t1);  p1.y=direction.y* (t1); p1.z=direction.z* (t1);
             length=sqrt((p2.x-p1.x)*(p2.x-p1.x)+(p2.y-p1.y)*(p2.y-p1.y)+(p2.z-p1.z)*(p2.z-p1.z));
@@ -472,9 +467,9 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
             
             // Now lets make sure we can find the next element correctly
             
-            // If t1 and t2 are the same, we need to make sure that the one we choose as 
+            // If t1 and t2 are the same, we need to make sure that the one we choose as
             // t2 (the one that will lead us to the next element) is the correct one.
-            // Otherwise we will go backwards and get trapped in an infinite loop 
+            // Otherwise we will go backwards and get trapped in an infinite loop
             // This piece of code makes sure this does not happen.
             if(t1==t2){
                 
@@ -512,52 +507,109 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
  *********************** Main fucntion ************************************
  *************************************************************************/
 void graphForwardRay(float const * const  image,  Geometry geo,
-                    const double * angles,const unsigned int nangles,
-                    const float* nodes,const unsigned long nnodes,
-                    const unsigned long* elements,const unsigned long nelements,
-                    const long* neighbours,const unsigned long nneighbours,
-                    const unsigned long* boundary,const unsigned long nboundary,
-                    float ** result)
+        const double * angles,const unsigned int nangles,
+        const float* nodes,const unsigned long nnodes,
+        const unsigned long* elements,const unsigned long nelements,
+        const long* neighbours,const unsigned long nneighbours,
+        const unsigned long* boundary,const unsigned long nboundary,
+        float ** result)
 {
+    
+    // Prepare for MultiGPU
+    int deviceCount = 0;
+    cudaGetDeviceCount(&deviceCount);
+    
+    if (deviceCount == 0) {
+        mexErrMsgIdAndTxt("TriangleCT:graphForward:GPUselect","There are no available device(s) that support CUDA\n");
+    }
+    //
+    // CODE assumes
+    // 1.-All available devices are usable by this code
+    // 2.-All available devices are equal, they are the same machine (warning trhown)
+    int dev;
+    char * devicenames;
+    cudaDeviceProp deviceProp;
+    
+    for (dev = 0; dev < deviceCount; ++dev) {
+        cudaSetDevice(dev);
+        cudaGetDeviceProperties(&deviceProp, dev);
+        if (dev>0){
+            if (strcmp(devicenames,deviceProp.name)!=0){
+                mexWarnMsgIdAndTxt("TriangleCT:graphForward:GPUselect","Detected one (or more) different GPUs.\n This code is not smart enough to separate the memory GPU wise if they have different computational times or memory limits.\n First GPU parameters used. If the code errors you might need to change the way GPU selection is performed. \n graph_ray_projection.cu line 526.");
+                break;
+            }
+        }
+        devicenames=deviceProp.name;
+    }
+    cudaSetDevice(0);
+    cudaGetDeviceProperties(&deviceProp, 0);
+    unsigned long long mem_GPU_global=(unsigned long long)(deviceProp.totalGlobalMem*0.9);
+    // This is the mandatory mem that we need to broadcast to all GPUs
+    size_t num_bytes_img  = nelements*sizeof(float);
+    size_t num_bytes_nodes = nnodes*3*sizeof(float);
+    size_t num_bytes_elements = nelements*4*sizeof(unsigned long);
+    size_t num_bytes_neighbours = nneighbours*4*sizeof(long);
+    size_t num_bytes_boundary = nboundary*sizeof(unsigned long);
+    
+    unsigned long long mem_needed_graph=num_bytes_img+num_bytes_nodes+num_bytes_elements+num_bytes_neighbours+num_bytes_boundary;
+    unsigned long long mem_free_GPU=mem_GPU_global-mem_needed_graph;
+    
+    
+    size_t num_bytes_proj = geo.nDetecU*geo.nDetecV * sizeof(float);
+    if (num_bytes_proj>mem_free_GPU)
+        mexErrMsgIdAndTxt("TriangleCT:graphForward:Memory","The entire mesh + 1 projection do not fit on a GPU.\n Dividig the projections is not supported \n");
+    if (mem_needed_graph>mem_GPU_global)
+        mexErrMsgIdAndTxt("TriangleCT:graphForward:Memory","The entire mesh does not fit on the GPU \n");
+    
+    
+    
     float time;
     float timecopy=0, timekernel=0,timeaux;
     cudaEvent_t start, stop;
-    
-     if (DEBUG_TIME){
+    if (DEBUG_TIME){
         
         cudaEventCreate(&start);
         cudaEventCreate(&stop);
         cudaEventRecord(start, 0);
     }
-    // First send all the relevant data to CUDA, and allocate enough memory for the result
-    size_t num_bytes_proj = geo.nDetecU*geo.nDetecV * sizeof(float);
-    float * d_res;
-    gpuErrchk(cudaMalloc((void **)&d_res,num_bytes_proj));
     
-    size_t num_bytes_img  = nelements*sizeof(float);
+    float ** d_res=(float *)malloc(deviceCount*sizeof(float*));
     float* d_image;
-    gpuErrchk(cudaMalloc((void **)&d_image,num_bytes_img));
-    gpuErrchk(cudaMemcpy(d_image,image,num_bytes_img,cudaMemcpyHostToDevice));
-    
-    size_t num_bytes_nodes = nnodes*3*sizeof(float);
     float * d_nodes;
-    gpuErrchk(cudaMalloc((void **)&d_nodes,num_bytes_nodes));
-    gpuErrchk(cudaMemcpy(d_nodes,nodes,num_bytes_nodes,cudaMemcpyHostToDevice));
-    
-    size_t num_bytes_elements = nelements*4*sizeof(unsigned long);
     unsigned long * d_elements;
-    gpuErrchk(cudaMalloc((void **)&d_elements,num_bytes_elements));
-    gpuErrchk(cudaMemcpy(d_elements,elements,num_bytes_elements,cudaMemcpyHostToDevice));
-    
-    size_t num_bytes_neighbours = nneighbours*4*sizeof(long);
     long * d_neighbours;
-    gpuErrchk(cudaMalloc((void **)&d_neighbours,num_bytes_neighbours));
-    gpuErrchk(cudaMemcpy(d_neighbours,neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice));
-    
-    size_t num_bytes_boundary = nboundary*sizeof(unsigned long);
     unsigned long * d_boundary;
-    gpuErrchk(cudaMalloc((void **)&d_boundary,num_bytes_boundary));
-    gpuErrchk(cudaMemcpy(d_boundary,boundary,num_bytes_boundary,cudaMemcpyHostToDevice));
+    for (dev = 0; dev < deviceCount; ++dev) {
+        
+        cudaSetDevice(dev);
+
+        // First send all the relevant data to CUDA, and allocate enough memory for the result
+        
+        gpuErrchk(cudaMalloc((void **)&d_res[dev],num_bytes_proj));
+        
+       
+        gpuErrchk(cudaMalloc((void **)&d_image,num_bytes_img));
+        gpuErrchk(cudaMemcpyAsync(d_image,image,num_bytes_img,cudaMemcpyHostToDevice));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_nodes,num_bytes_nodes));
+        gpuErrchk(cudaMemcpyAsync(d_nodes,nodes,num_bytes_nodes,cudaMemcpyHostToDevice));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_elements,num_bytes_elements));
+        gpuErrchk(cudaMemcpyAsync(d_elements,elements,num_bytes_elements,cudaMemcpyHostToDevice));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_neighbours,num_bytes_neighbours));
+        gpuErrchk(cudaMemcpyAsync(d_neighbours,neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_boundary,num_bytes_boundary));
+        gpuErrchk(cudaMemcpyAsync(d_boundary,boundary,num_bytes_boundary,cudaMemcpyHostToDevice));
+        
+        
+        
+    }
     
     if (DEBUG_TIME){
         cudaEventRecord(stop, 0);
@@ -566,6 +618,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         
         mexPrintf("Time to memcpy:  %3.1f ms \n", time);
     }
+    
     // Replace by a reduction (?)
     vec3 nodemin, nodemax;
     nodemin.x=nodes[0];
@@ -593,26 +646,25 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     
     vec3  deltaU, deltaV, uvOrigin;
     vec3 source;
+    
     for (unsigned int i=0;i<nangles;i++){
         geo.alpha=angles[i*3];
         geo.theta=angles[i*3+1];
         geo.psi  =angles[i*3+2];
         
-        computeGeomtricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i);
+        
+        cudaSetDevice(i/deviceCount);
+        
+        computeGeometricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i);
         if (DEBUG_TIME){
             cudaEventCreate(&start);
             cudaEventCreate(&stop);
             cudaEventRecord(start, 0);
         }
-        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary, d_res, geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);
-//         testKernel<<<1,1>>>(cudaGraph,d_res);
-        gpuErrchk(cudaPeekAtLastError());
-        gpuErrchk(cudaDeviceSynchronize());
+        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary, d_res[dev], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);      
+        graphProject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_image,d_res[dev], geo,source,deltaU,deltaV,uvOrigin);
         
-        graphProject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_image,d_res, geo,source,deltaU,deltaV,uvOrigin);
-        
-        gpuErrchk(cudaPeekAtLastError());
-        gpuErrchk(cudaDeviceSynchronize());
+
         
         if (DEBUG_TIME){
             
@@ -626,7 +678,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
             cudaEventRecord(start, 0);
         }
         
-        gpuErrchk(cudaMemcpy(result[i], d_res, num_bytes_proj, cudaMemcpyDeviceToHost));
+        gpuErrchk(cudaMemcpyAsync(result[i], d_res[dev], num_bytes_proj, cudaMemcpyDeviceToHost));
         
         if (DEBUG_TIME){
             cudaEventRecord(stop, 0);
@@ -671,7 +723,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
 
 
 // TODO: quite a lot of geometric transforms.
-void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle){
+void computeGeometricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle){
     
     vec3 auxOriginUV;
     vec3 auxDeltaU;
@@ -745,91 +797,3 @@ void eulerZYZ(Geometry geo,  vec3* point){
     
 }
 
-// this is fucking slow......... Copying an image of the same size in bytes is x1000 faster. (measured)
-void cudaGraphMalloc(const Graph* inGraph, Graph **outGraph, Graph** outGraphHost, Element ** outElementHost, Node** outNodeHost){
-    
-    Graph* tempHostGraph;
-    tempHostGraph = (Graph*)malloc(sizeof(Graph));
-    
-    //copy constants
-    tempHostGraph->nNode = inGraph->nNode;
-    tempHostGraph->nElement = inGraph->nElement;
-    tempHostGraph->nBoundary = inGraph->nBoundary;
-    
-    
-    
-    // copy boundary
-    gpuErrchk(cudaMalloc((void**)&(tempHostGraph->boundary), inGraph->nBoundary * sizeof(unsigned int)));
-    gpuErrchk(cudaMemcpy(tempHostGraph->boundary, inGraph->boundary, inGraph->nBoundary * sizeof(unsigned int), cudaMemcpyHostToDevice));
-    
-    //Create nodes
-    gpuErrchk(cudaMalloc((void**)&(tempHostGraph->node), tempHostGraph->nNode * sizeof(Node)));
-    // Auxiliary host nodes
-    Node* auxNodeHost = (Node *)malloc(tempHostGraph->nNode * sizeof(Node));
-    for (int i = 0; i < tempHostGraph->nNode; i++)
-    {
-        auxNodeHost[i].nAdjacent = inGraph->node[i].nAdjacent;
-        
-        //Allocate device memory to position member of auxillary node
-        gpuErrchk(cudaMalloc((void**)&(auxNodeHost[i].adjacent_element), inGraph->node[i].nAdjacent*sizeof(unsigned int)));
-        gpuErrchk(cudaMemcpy(auxNodeHost[i].adjacent_element, inGraph->node[i].adjacent_element, inGraph->node[i].nAdjacent*sizeof(unsigned int), cudaMemcpyHostToDevice));
-        
-        //Allocate device memory to position member of auxillary node
-        gpuErrchk(cudaMalloc((void**)&(auxNodeHost[i].position), 3 * sizeof(float)));
-        gpuErrchk(cudaMemcpy(auxNodeHost[i].position, inGraph->node[i].position, 3 * sizeof(float), cudaMemcpyHostToDevice));
-        
-        //Copy auxillary host node to device
-        gpuErrchk(cudaMemcpy(tempHostGraph->node + i, &auxNodeHost[i], sizeof(Node), cudaMemcpyHostToDevice));
-    }
-    
-    
-    //Create elements
-    gpuErrchk(cudaMalloc((void**)&(tempHostGraph->element), tempHostGraph->nElement * sizeof(Element)));
-    // Auxiliary host nodes
-    Element* auxElementHost = (Element *)malloc(tempHostGraph->nElement * sizeof(Element));
-    
-    for (int i = 0; i < tempHostGraph->nElement; i++)
-    {
-        auxElementHost[i].nNeighbour = inGraph->element[i].nNeighbour;
-        
-        //Allocate device memory to position member of auxillary node
-        gpuErrchk(cudaMalloc((void**)&(auxElementHost[i].neighbour), inGraph->element[i].nNeighbour*sizeof(unsigned int)));
-        gpuErrchk(cudaMemcpy(auxElementHost[i].neighbour, inGraph->element[i].neighbour, inGraph->element[i].nNeighbour*sizeof(unsigned int), cudaMemcpyHostToDevice));
-        
-        //Allocate device memory to position member of auxillary node
-        gpuErrchk(cudaMalloc((void**)&(auxElementHost[i].nodeID), 4 * sizeof(unsigned int)));
-        gpuErrchk(cudaMemcpy(auxElementHost[i].nodeID, inGraph->element[i].nodeID, 4 * sizeof(unsigned int), cudaMemcpyHostToDevice));
-        
-        //Copy auxillary host node to device
-        gpuErrchk(cudaMemcpy(tempHostGraph->element + i, &auxElementHost[i], sizeof(Element), cudaMemcpyHostToDevice));
-    }
-    // Copy the host auxiliary Graph to device.
-    // Now we have no host access to this structure, so if you want to free its memory, we need to do it with the axiliary host variables.
-    gpuErrchk(cudaMalloc((void**)outGraph, sizeof(Graph)));
-    gpuErrchk(cudaMemcpy(*outGraph, tempHostGraph, sizeof(Graph), cudaMemcpyHostToDevice));
-    
-    *outGraphHost = tempHostGraph;
-    *outNodeHost = auxNodeHost;
-    *outElementHost=auxElementHost;
-    return;
-}
-
-void cudaGraphFree(Graph** tempHostGraph, Element** tempHostElement, Node** tempHostNode){
-    Graph * freeGraph = *tempHostGraph;
-    Node * freeNode = *tempHostNode;
-    Element * freeElement = *tempHostElement;
-    
-    for (int i = 0; i < freeGraph->nNode; i++){
-        gpuErrchk(cudaFree(freeNode[i].adjacent_element));
-        gpuErrchk(cudaFree(freeNode[i].position));
-    }
-    gpuErrchk(cudaFree(freeGraph->node));
-    
-    for (int i = 0; i < freeGraph->nElement; i++){
-        gpuErrchk(cudaFree(freeElement[i].neighbour));
-        gpuErrchk(cudaFree(freeElement[i].nodeID));
-    }
-    gpuErrchk(cudaFree(freeGraph->element));
-    
-    gpuErrchk(cudaFree(freeGraph->boundary));
-}

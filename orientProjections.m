@@ -101,8 +101,8 @@ camlight
 geo.DSD = 1536;                             % Distance Source Detector      (mm)
 geo.DSO = 1000;                             % Distance Source Origin        (mm)
 % Detector parameters
-geo.nDetector=[256; 256]*4;					% number of pixels              (px)
-geo.dDetector=[1; 1]/4; 					% size of each pixel            (mm)
+geo.nDetector=[256; 256];					% number of pixels              (px)
+geo.dDetector=[1; 1]; 					% size of each pixel            (mm)
 geo.sDetector=geo.nDetector.*geo.dDetector; % total size of the detector    (mm)
 % Image parameters
 geo.nVoxel=[256;256;1];                     % number of voxels              (vx)
@@ -137,3 +137,15 @@ figure
 imshow(test(:,:,1).',[])
 
 %%
+figure
+% close all
+cla
+hold on
+axis equal
+% axis([-100 100 -20 20 -70 70])
+
+
+[F,P]=freeBoundary( triangulation(TRI(separatedSIRT>0.7,:),vertices));
+trisurf(F,P(:,1),P(:,2),P(:,3), ...
+       'FaceColor',[0.8 0.8 1.0],'FaceAlpha',1,'edgecolor','none');
+camlight

@@ -34,6 +34,6 @@ void bruteForwardRay(float const * const  image,  Geometry geo, const double * a
 void cudaGraphMalloc(const Graph* inGraph, Graph **outGraph, Graph** outGraphHost, Element ** outElementHost, Node** outNodeHost);
 void cudaGraphFree(Graph** tempHostGraph, Element** tempHostElement, Node** tempHostNode );
 
-void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle);
+void computeGeometricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle);
 void eulerZYZ(Geometry geo,  vec3* point);
 #endif

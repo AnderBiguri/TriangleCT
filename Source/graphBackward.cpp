@@ -81,7 +81,7 @@ void mexFunction(int  nlhs , mxArray *plhs[],
      *********************** Fifth Input: vertices***************************
      ********************************************************************/
     mxArray const * const verticesMex = prhs[4];
-    double const * const vertices = static_cast<double const *>(mxGetData(verticesMex));
+    float const * const vertices = static_cast<float const *>(mxGetData(verticesMex));
     const mwSize*  mwSizevertices=mxGetDimensions(verticesMex);
     unsigned long nvertices=mwSizevertices[0]/3;
      /*********************************************************************
@@ -118,7 +118,7 @@ void mexFunction(int  nlhs , mxArray *plhs[],
      *********************** Run code ********************************
      ********************************************************************/
   
-    graphBackwardRay_CPU(proj,geo,
+    graphBackwardRay(proj,geo,
                         angles,nangles,
                         vertices,nvertices,
                         elements,nelements,
