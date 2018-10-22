@@ -573,7 +573,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         cudaEventRecord(start, 0);
     }
     
-    float ** d_res=(float *)malloc(deviceCount*sizeof(float*));
+    float ** d_res=(float **)malloc(deviceCount*sizeof(float*));
     float* d_image;
     float * d_nodes;
     unsigned long * d_elements;
