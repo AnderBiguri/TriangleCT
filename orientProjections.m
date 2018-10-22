@@ -2,7 +2,7 @@ clear;clc;
 InitMesh
 close all
 %% Load data
-fv=stlread('Cheese_Doorstop_Pyramid_Cleats.stl');
+fv=stlread('./Models/BLOCK1.stl');
 fv.vertices(:,1)=fv.vertices(:,1)+[min(fv.vertices(:,1))-max(fv.vertices(:,1))]/2;
 fv.vertices(:,2)=fv.vertices(:,2)+[min(fv.vertices(:,2))-max(fv.vertices(:,2))]/2;
 fv.vertices(:,3)=fv.vertices(:,3)+[min(fv.vertices(:,3))-max(fv.vertices(:,3))]/2;
