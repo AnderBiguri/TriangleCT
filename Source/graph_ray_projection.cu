@@ -654,16 +654,17 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         
         
         cudaSetDevice(i%deviceCount);
-        mexPrintf("%d\n",i%deviceCount);
+
         computeGeometricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i);
         if (DEBUG_TIME){
             cudaEventCreate(&start);
             cudaEventCreate(&stop);
             cudaEventRecord(start, 0);
         }
-         initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary, d_res[i%deviceCount], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);      
-         graphProject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_image,d_res[i%deviceCount], geo,source,deltaU,deltaV,uvOrigin);
-         
+
+        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary, d_res[i%deviceCount], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);      
+        graphProject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_image,d_res[i%deviceCount], geo,source,deltaU,deltaV,uvOrigin);
+        
 
         
         if (DEBUG_TIME){
