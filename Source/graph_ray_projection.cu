@@ -530,7 +530,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     char * devicenames;
     cudaDeviceProp deviceProp;
     
-    for (dev = 0; dev < deviceCount; ++dev) {
+    for (dev = 0; dev < deviceCount; dev++) {
         cudaSetDevice(dev);
         cudaGetDeviceProperties(&deviceProp, dev);
         if (dev>0){
@@ -579,7 +579,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     unsigned long * d_elements;
     long * d_neighbours;
     unsigned long * d_boundary;
-    for (dev = 0; dev < deviceCount; ++dev) {
+    for (dev = 0; dev < deviceCount; dev++) {
         
         cudaSetDevice(dev);
 
@@ -702,7 +702,10 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         cudaEventRecord(start, 0);
     }
 //     cudaGraphFree(&tempHostGraph,&tempHostElement,&tempHostNode);
-    cudaFree(d_res);
+    for (dev = 0; dev < deviceCount; dev++) {
+        cudaSetDevice(dev);
+        cudaFree(d_res[dev]);
+    }
     cudaFree(d_image);
     cudaFree(d_nodes);
     cudaFree(d_neighbours);

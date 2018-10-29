@@ -145,7 +145,7 @@ axis equal
 % axis([-100 100 -20 20 -70 70])
 
 
-[F,P]=freeBoundary( triangulation(TRI(separatedSIRT>0.7,:),vertices));
+[F,P]=freeBoundary( triangulation(TRI(double(Model1_FE_tetrahedra_Part)>1,:),vertices));
 trisurf(F,P(:,1),P(:,2),P(:,3), ...
        'FaceColor',[0.8 0.8 1.0],'FaceAlpha',1,'edgecolor','none');
 camlight
