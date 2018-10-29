@@ -271,6 +271,10 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
+    if(idx==0)
+        d_res[idx]=-1;
+    return;
+    
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
@@ -331,6 +335,13 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
+    
+    unsigned long maxidx=(geo.nDetecU*geo.nDetecV-1);
+    if(idx== maxidx)//(geo.nDetecU*geo.nDetecV-1))
+        d_res[idx]=1;
+    else
+        d_res[idx]=0;
+    return;
     
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
