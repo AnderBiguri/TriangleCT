@@ -2,7 +2,7 @@ function vol = tetrahedronVolume(vertices, varargin)
 %TETRAHEDRONVOLUME Signed volume of a tetrahedron
 %
 %   VOL = tetrahedronVolume(TETRA)
-%   Comptues the siged volume of the tetrahedron TETRA defined by a 4-by-4
+%   Computes the siged volume of the tetrahedron TETRA defined by a 4-by-4
 %   array representing the polyhedron vertices.
 %
 %   Example

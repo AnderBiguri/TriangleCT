@@ -515,6 +515,8 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
                     const unsigned long* boundary,const unsigned long nboundary,
                     float * result)
 {
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
     float time;
     float timecopy=0, timekernel=0,timeaux;
     cudaEvent_t start, stop;
@@ -527,36 +529,51 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     }
     // First send all the relevant data to CUDA, and allocate enough memory for the result
     size_t num_bytes_img  = nelements*sizeof(float);
+    
     float* d_image;
-    gpuErrchk(cudaMalloc((void **)&d_image,num_bytes_img));
-    gpuErrchk(cudaMemset(d_image,0,num_bytes_img));
-
+    cudaMalloc((void **)&d_image,num_bytes_img);
+    cudaMemset(d_image,0,num_bytes_img);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
+    
     size_t num_bytes_proj = geo.nDetecU*geo.nDetecV* sizeof(float);
     float * d_proj;
-    gpuErrchk(cudaMalloc((void **)&d_proj,num_bytes_proj));
-
+    cudaMalloc((void **)&d_proj,num_bytes_proj);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
+    
     float * d_auxInit;
-    gpuErrchk(cudaMalloc((void **)&d_auxInit,num_bytes_proj));
+    cudaMalloc((void **)&d_auxInit,num_bytes_proj);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
     
     size_t num_bytes_nodes = nnodes*3*sizeof(float);
     float * d_nodes;
-    gpuErrchk(cudaMalloc((void **)&d_nodes,num_bytes_nodes));
-    gpuErrchk(cudaMemcpy(d_nodes,nodes,num_bytes_nodes,cudaMemcpyHostToDevice));
+    cudaMalloc((void **)&d_nodes,num_bytes_nodes);
+    cudaMemcpy(d_nodes,nodes,num_bytes_nodes,cudaMemcpyHostToDevice);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
     
     size_t num_bytes_elements = nelements*4*sizeof(unsigned long);
     unsigned long * d_elements;
-    gpuErrchk(cudaMalloc((void **)&d_elements,num_bytes_elements));
-    gpuErrchk(cudaMemcpy(d_elements,elements,num_bytes_elements,cudaMemcpyHostToDevice));
+    cudaMalloc((void **)&d_elements,num_bytes_elements);
+    cudaMemcpy(d_elements,elements,num_bytes_elements,cudaMemcpyHostToDevice);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
     
     size_t num_bytes_neighbours = nneighbours*4*sizeof(long);
     long * d_neighbours;
-    gpuErrchk(cudaMalloc((void **)&d_neighbours,num_bytes_neighbours));
-    gpuErrchk(cudaMemcpy(d_neighbours,neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice));
+    cudaMalloc((void **)&d_neighbours,num_bytes_neighbours);
+    cudaMemcpy(d_neighbours,neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
     
     size_t num_bytes_boundary = nboundary*sizeof(unsigned long);
     unsigned long * d_boundary;
-    gpuErrchk(cudaMalloc((void **)&d_boundary,num_bytes_boundary));
-    gpuErrchk(cudaMemcpy(d_boundary,boundary,num_bytes_boundary,cudaMemcpyHostToDevice));
+    cudaMalloc((void **)&d_boundary,num_bytes_boundary);
+    cudaMemcpy(d_boundary,boundary,num_bytes_boundary,cudaMemcpyHostToDevice);
+    gpuErrchk(cudaPeekAtLastError());
+    gpuErrchk(cudaDeviceSynchronize());
     
     if (DEBUG_TIME){
         cudaEventRecord(stop, 0);
@@ -600,7 +617,8 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
         }
 
         gpuErrchk(cudaMemcpyAsync(d_proj,&projections[geo.nDetecU*geo.nDetecV*i],num_bytes_proj,cudaMemcpyHostToDevice));
-
+        gpuErrchk(cudaPeekAtLastError());
+        gpuErrchk(cudaDeviceSynchronize());
         geo.alpha=angles[i*3];
         geo.theta=angles[i*3+1];
         geo.psi  =angles[i*3+2];
@@ -616,7 +634,7 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
             cudaEventCreate(&stop);
             cudaEventRecord(start, 0);
         }
-         initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary,d_auxInit, geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);
+        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary,d_auxInit, geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);
 
         gpuErrchk(cudaPeekAtLastError());
         gpuErrchk(cudaDeviceSynchronize());
