@@ -271,9 +271,7 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
-    if(idx==0)
-        d_res[idx]=-1;
-    return;
+
     
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
@@ -335,14 +333,8 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
-    
-    unsigned long maxidx=(geo.nDetecU*geo.nDetecV-1);
-    if(idx== maxidx)//(geo.nDetecU*geo.nDetecV-1))
-        d_res[idx]=1;
-    else
-        d_res[idx]=0;
-    return;
-    
+   
+
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
@@ -529,7 +521,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     // Prepare for MultiGPU
     int deviceCount = 0;
     cudaGetDeviceCount(&deviceCount);
-    
+    deviceCount = 1;
     if (deviceCount == 0) {
         mexErrMsgIdAndTxt("TriangleCT:graphForward:GPUselect","There are no available device(s) that support CUDA\n");
     }
@@ -598,7 +590,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         
         gpuErrchk(cudaMalloc((void **)&d_res[dev],num_bytes_proj));
         
-       
+        
         gpuErrchk(cudaMalloc((void **)&d_image,num_bytes_img));
         gpuErrchk(cudaMemcpyAsync(d_image,image,num_bytes_img,cudaMemcpyHostToDevice));
         
@@ -621,7 +613,8 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         
         
     }
-    
+
+
     if (DEBUG_TIME){
         cudaEventRecord(stop, 0);
         cudaEventSynchronize(stop);
@@ -663,9 +656,10 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         geo.theta=angles[i*3+1];
         geo.psi  =angles[i*3+2];
         
-        
-        cudaSetDevice(i%deviceCount);
-
+        dev=i%deviceCount;
+        dev=0;
+        cudaSetDevice(dev);
+         
         computeGeometricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i);
         if (DEBUG_TIME){
             cudaEventCreate(&start);
@@ -673,10 +667,8 @@ void graphForwardRay(float const * const  image,  Geometry geo,
             cudaEventRecord(start, 0);
         }
 
-        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary, d_res[i%deviceCount], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);      
-        graphProject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_image,d_res[i%deviceCount], geo,source,deltaU,deltaV,uvOrigin);
-        
-
+        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary, d_res[dev], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);      
+        graphProject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_image,d_res[dev], geo,source,deltaU,deltaV,uvOrigin);
         
         if (DEBUG_TIME){
             
@@ -690,7 +682,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
             cudaEventRecord(start, 0);
         }
         
-        gpuErrchk(cudaMemcpyAsync(result[i], d_res[i%deviceCount], num_bytes_proj, cudaMemcpyDeviceToHost));
+        gpuErrchk(cudaMemcpyAsync(result[i], d_res[dev], num_bytes_proj, cudaMemcpyDeviceToHost));
         
         if (DEBUG_TIME){
             cudaEventRecord(stop, 0);
