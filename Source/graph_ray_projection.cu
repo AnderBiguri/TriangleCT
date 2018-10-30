@@ -265,14 +265,11 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
         const vec3 source,const vec3 deltaU,const vec3 deltaV,const vec3 uvOrigin,const vec3 nodemin,const vec3 nodemax)
 {
     
-    
     unsigned long  y = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned long  x = blockIdx.x * blockDim.x + threadIdx.x;
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
-
-    
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
@@ -290,7 +287,6 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
         d_res[idx]=-1.0f;
         return;
     }
-    
     
     
     // Check intersection with all elements in the boudnary
@@ -333,9 +329,7 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
-   
 
-    
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
     
