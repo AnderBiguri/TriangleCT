@@ -22,8 +22,18 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         }
     }
 }
-
-
+    
+/**************************************************************************
+ *********************** vector addition ****************************
+ *************************************************************************/
+__global__ void addVectorsInPlace(float* a,float* b,unsigned long n){
+    size_t idx = threadIdx.x + blockIdx.x * blockDim.x;
+     for(; idx<n; idx+=gridDim.x*blockDim.x) {
+            a[idx]+=b[idx];
+            
+     }
+}
+    
 /**************************************************************************
  *********************** cross product in CUDA ****************************
  *************************************************************************/
@@ -90,7 +100,7 @@ __device__ __inline__ int nnz(float *t){
 __device__ __inline__ float moller_trumbore(const vec3 ray1, const vec3 ray2,
         const vec3d trip1,const vec3d trip2,const vec3d trip3, const float safetyEpsilon){
     
-
+    
     
     
     vec3d direction,e1,e2;
@@ -180,16 +190,16 @@ __device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,cons
     l4=moller_trumbore(ray1,ray2,triN1,triN2,triN3,safetyEpsilon);
     
     //dump
-
-        //fuck branches, but what can I do ....
-        if ((l1==0.0)&&(l2==0.0)&&(l3==0.0)&&(l4==0.0)){
-            t[0]=0.0;t[1]=0.0;t[2]=0.0;t[3]=0.0;
-            return false;
-        }else{
-            t[0]=l1;t[1]=l2;t[2]=l3;t[3]=l4;
-            // find which one is the intersection
-            return true;
-        }
+    
+    //fuck branches, but what can I do ....
+    if ((l1==0.0)&&(l2==0.0)&&(l3==0.0)&&(l4==0.0)){
+        t[0]=0.0;t[1]=0.0;t[2]=0.0;t[3]=0.0;
+        return false;
+    }else{
+        t[0]=l1;t[1]=l2;t[2]=l3;t[3]=l4;
+        // find which one is the intersection
+        return true;
+    }
 }
 
 /**************************************************************************
@@ -276,7 +286,7 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
-
+    
     
     // Compute detector position
     vec3 det;
@@ -315,12 +325,12 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
                 }
             }
         }
-        safetyEpsilon=safetyEpsilon*10;           
-    } 
-
+        safetyEpsilon=safetyEpsilon*10;
+    }
+    
     d_aux[idx]=(float)crossingID;
     return;
-
+    
 }
 /**************************************************************************
  ******************The mein projection fucntion ***************************
@@ -330,11 +340,11 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
         vec3 source, vec3 deltaU, vec3 deltaV, vec3 uvOrigin){
     
     unsigned long  y = blockIdx.y * blockDim.y + threadIdx.y;
-     //unsigned long  y = threadIdx.y * gridDim.y + blockIdx.y;
-
+    //unsigned long  y = threadIdx.y * gridDim.y + blockIdx.y;
+    
     unsigned long  x = blockIdx.x * blockDim.x + threadIdx.x;
-     //unsigned long  x = threadIdx.x * gridDim.x + blockIdx.x;
-
+    //unsigned long  x = threadIdx.x * gridDim.x + blockIdx.x;
+    
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
@@ -342,13 +352,13 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
     
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
-
+    
     
     // Read initial position. Generate auxiliar variables for element tracking
     long current_element=(long)d_auxInit[idx];
     long previous_element;
     long aux_element;
-
+    
     // for speed. Minimize reads
     float pixel_value=d_proj[idx];
     //  Get the coordinates of the detector for this kernel
@@ -371,9 +381,9 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
     bool isIntersect;
     
     
-    // Lets compute the first intersection outside the main loop. 
-    // The structure of this loop has to be identical to the one in InitXrays() or 
-    // there is risk of not getting the same floating point value bit by bit. 
+    // Lets compute the first intersection outside the main loop.
+    // The structure of this loop has to be identical to the one in InitXrays() or
+    // there is risk of not getting the same floating point value bit by bit.
     float safeEpsilon=0.00001f;
     isIntersect=tetraLineIntersect(elements,vertices,source,det,boundary[current_element],t,true,0.0f);
     while(!isIntersect){
@@ -389,8 +399,8 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
     // Find the maximum and minimum non-zero intersection parameters
     t2=max4(t,&indM);
     t1=min4nz(t);
-
-    // Lets get the ray (direction) and the current intersection length. 
+    
+    // Lets get the ray (direction) and the current intersection length.
     vec3 direction,p1,p2;
     direction.x=det.x-source.x;     direction.y=det.y-source.y;     direction.z=det.z-source.z;
     p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
@@ -401,9 +411,9 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
     
     // Start accumulating the result
     atomicAdd(&d_image[boundary[current_element]],length*pixel_value);
-    // If t1 and t2 are the same, we need to make sure that the one we choose as 
+    // If t1 and t2 are the same, we need to make sure that the one we choose as
     // t2 (the one that will lead us to the next element) is the correct one.
-    // Otherwise we will go out of the image, and the code will end. 
+    // Otherwise we will go out of the image, and the code will end.
     // This piece of code makes sure that is checked and swaps them otherwise.
     if(t1==t2){
         aux_element=neighbours[boundary[current_element]*4+indM];
@@ -435,7 +445,7 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
         // Check intersections we now this one is intersected )because it shares a face with the previosu one that was intersected)
         isIntersect=tetraLineIntersect(elements,vertices,source,det,(unsigned int)current_element,t,true,0.0f);
         while(!isIntersect){
-            // If intersection failed, then lets slightly increase the size of the triangle 
+            // If intersection failed, then lets slightly increase the size of the triangle
             // (not really, we increase the bounds of acceptable intersection values)
             // We can do it without safety becasue we already know it must happen.
             isIntersect=tetraLineIntersect(elements,vertices,source,det,(unsigned int)current_element,t,true,safeEpsilon);
@@ -448,10 +458,10 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
         
         // Find the maximum and minimum non-zero intersection parameters
         t2=max4(t,&indM);
-
+        
         t1=min4nz(t);
 // if they are very similar just treat them as if they were the same
-// NOTE This was necesary in a previosu version, Its left here just in case its neeed again.        
+// NOTE This was necesary in a previosu version, Its left here just in case its neeed again.
 //////
 //         if (fabsf(t2-t1)<0.00000001){
 //             t2=t1;
@@ -462,16 +472,17 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
         // Are they all zero?
         sumt=t[0]+t[1]+t[2]+t[3];
         if (sumt!=0.0){
-           // compute intersection length and update result integral
+            // compute intersection length and update result integral
             p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
             p1.x=direction.x* (t1);  p1.y=direction.y* (t1); p1.z=direction.z* (t1);
             length=sqrt((p2.x-p1.x)*(p2.x-p1.x)+(p2.y-p1.y)*(p2.y-p1.y)+(p2.z-p1.z)*(p2.z-p1.z));
             atomicAdd(&d_image[current_element],length*pixel_value);
+            
             // Now lets make sure we can find the next element correctly
             
-            // If t1 and t2 are the same, we need to make sure that the one we choose as 
+            // If t1 and t2 are the same, we need to make sure that the one we choose as
             // t2 (the one that will lead us to the next element) is the correct one.
-            // Otherwise we will go backwards and get trapped in an infinite loop 
+            // Otherwise we will go backwards and get trapped in an infinite loop
             // This piece of code makes sure this does not happen.
             if(t1==t2){
                 
@@ -508,80 +519,110 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
  *********************** Main fucntion ************************************
  *************************************************************************/
 void graphBackwardRay(float const * const  projections,  Geometry geo,
-                    const double * angles,const unsigned int nangles,
-                    const float* nodes,const unsigned long nnodes,
-                    const unsigned long* elements,const unsigned long nelements,
-                    const long* neighbours,const unsigned long nneighbours,
-                    const unsigned long* boundary,const unsigned long nboundary,
-                    float * result)
+        const double * angles,const unsigned int nangles,
+        const float* nodes,const unsigned long nnodes,
+        const unsigned long* elements,const unsigned long nelements,
+        const long* neighbours,const unsigned long nneighbours,
+        const unsigned long* boundary,const unsigned long nboundary,
+        float * result)
 {
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
-    float time;
-    float timecopy=0, timekernel=0,timeaux;
-    cudaEvent_t start, stop;
     
-     if (DEBUG_TIME){
-        
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-        cudaEventRecord(start, 0);
+    
+    // Prepare for MultiGPU
+    int deviceCount = 0;
+    gpuErrchk(cudaGetDeviceCount(&deviceCount));
+    mexPrintf("Devices: %d",deviceCount);
+    if (deviceCount == 0) {
+        mexErrMsgIdAndTxt("TriangleCT:graphBackward:GPUselect","There are no available device(s) that support CUDA\n");
     }
-    // First send all the relevant data to CUDA, and allocate enough memory for the result
+    //
+    // CODE assumes
+    // 1.-All available devices are usable by this code
+    // 2.-All available devices are equal, they are the same machine (warning trhown)
+    int dev;
+    char * devicenames;
+    cudaDeviceProp deviceProp;
+    
+    for (dev = 0; dev < deviceCount; dev++) {
+        cudaSetDevice(dev);
+        cudaGetDeviceProperties(&deviceProp, dev);
+        if (dev>0){
+            if (strcmp(devicenames,deviceProp.name)!=0){
+                mexWarnMsgIdAndTxt("TriangleCT:graphBackward:GPUselect","Detected one (or more) different GPUs.\n This code is not smart enough to separate the memory GPU wise if they have different computational times or memory limits.\n First GPU parameters used. If the code errors you might need to change the way GPU selection is performed. \n graph_ray_projection.cu line 526.");
+                break;
+            }
+        }
+        devicenames=deviceProp.name;
+    }
+    cudaSetDevice(0);
+    cudaGetDeviceProperties(&deviceProp, 0);
+    unsigned long long mem_GPU_global=(unsigned long long)(deviceProp.totalGlobalMem*0.9);
+    // This is the mandatory mem that we need to broadcast to all GPUs
+    size_t num_bytes_nodes = nnodes*3*sizeof(float);
+    size_t num_bytes_elements = nelements*4*sizeof(unsigned long);
+    size_t num_bytes_neighbours = nneighbours*4*sizeof(long);
+    size_t num_bytes_boundary = nboundary*sizeof(unsigned long);
+    
+    unsigned long long mem_needed_graph=num_bytes_nodes+num_bytes_elements+num_bytes_neighbours+num_bytes_boundary;
+    unsigned long long mem_free_GPU=mem_GPU_global-mem_needed_graph;
+    
+    size_t num_bytes_proj = geo.nDetecU*geo.nDetecV * sizeof(float);
     size_t num_bytes_img  = nelements*sizeof(float);
     
-    float* d_image;
-    cudaMalloc((void **)&d_image,num_bytes_img);
-    cudaMemset(d_image,0,num_bytes_img);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
+    // The kenrels need graph+image+projection+auxiliar projection
+    if (mem_needed_graph>mem_GPU_global)
+        mexErrMsgIdAndTxt("TriangleCT:graphForward:Memory","The entire mesh does not fit on the GPU \n");
+    if ((num_bytes_proj*2+num_bytes_img)>mem_free_GPU)
+        mexErrMsgIdAndTxt("TriangleCT:graphForward:Memory","The entire mesh + attenuation values + 2 projections do not fit on a GPU.\n Dividig the projections is not supported \n");
     
-    size_t num_bytes_proj = geo.nDetecU*geo.nDetecV* sizeof(float);
-    float * d_proj;
-    cudaMalloc((void **)&d_proj,num_bytes_proj);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
+
     
-    float * d_auxInit;
-    cudaMalloc((void **)&d_auxInit,num_bytes_proj);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
     
-    size_t num_bytes_nodes = nnodes*3*sizeof(float);
-    float * d_nodes;
-    cudaMalloc((void **)&d_nodes,num_bytes_nodes);
-    cudaMemcpy(d_nodes,nodes,num_bytes_nodes,cudaMemcpyHostToDevice);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
     
-    size_t num_bytes_elements = nelements*4*sizeof(unsigned long);
-    unsigned long * d_elements;
-    cudaMalloc((void **)&d_elements,num_bytes_elements);
-    cudaMemcpy(d_elements,elements,num_bytes_elements,cudaMemcpyHostToDevice);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
     
-    size_t num_bytes_neighbours = nneighbours*4*sizeof(long);
-    long * d_neighbours;
-    cudaMalloc((void **)&d_neighbours,num_bytes_neighbours);
-    cudaMemcpy(d_neighbours,neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
     
-    size_t num_bytes_boundary = nboundary*sizeof(unsigned long);
-    unsigned long * d_boundary;
-    cudaMalloc((void **)&d_boundary,num_bytes_boundary);
-    cudaMemcpy(d_boundary,boundary,num_bytes_boundary,cudaMemcpyHostToDevice);
-    gpuErrchk(cudaPeekAtLastError());
-    gpuErrchk(cudaDeviceSynchronize());
     
-    if (DEBUG_TIME){
-        cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&time, start, stop);
+    
+    float**         d_proj          =   (float **)          malloc(deviceCount*sizeof(float*));
+    float**         d_auxInit       =   (float **)          malloc(deviceCount*sizeof(float*));
+    float**         d_image         =   (float **)          malloc(deviceCount*sizeof(float*));
+    float**         d_nodes         =   (float **)          malloc(deviceCount*sizeof(float*));
+    unsigned long** d_elements      =   (unsigned long **)  malloc(deviceCount*sizeof(unsigned long*));
+    long **         d_neighbours    =   ( long **)          malloc(deviceCount*sizeof(long*));
+    unsigned long** d_boundary      =   (unsigned long **)  malloc(deviceCount*sizeof(unsigned long*));
+    
+    for (dev = 0; dev < deviceCount; dev++) {
+        cudaSetDevice(dev);
         
-        mexPrintf("Time to memcpy:  %3.1f ms \n", time);
+        // First send all the relevant data to CUDA, and allocate enough memory for the result
+        
+        gpuErrchk(cudaMalloc((void **)&d_proj[dev],num_bytes_proj));
+        gpuErrchk(cudaMalloc((void **)&d_auxInit[dev],num_bytes_proj));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_image[dev],num_bytes_img));
+        gpuErrchk(cudaMemset(d_image[dev],0,num_bytes_img));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_nodes[dev],num_bytes_nodes));
+        gpuErrchk(cudaMemcpyAsync(d_nodes[dev],nodes,num_bytes_nodes,cudaMemcpyHostToDevice));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_elements[dev],num_bytes_elements));
+        gpuErrchk(cudaMemcpyAsync(d_elements[dev],elements,num_bytes_elements,cudaMemcpyHostToDevice));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_neighbours[dev],num_bytes_neighbours));
+        gpuErrchk(cudaMemcpyAsync(d_neighbours[dev],neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice));
+        
+        
+        gpuErrchk(cudaMalloc((void **)&d_boundary[dev],num_bytes_boundary));
+        gpuErrchk(cudaMemcpyAsync(d_boundary[dev],boundary,num_bytes_boundary,cudaMemcpyHostToDevice));
+        
     }
+    
+    
+  
     // Replace by a reduction (?)
     vec3 nodemin, nodemax;
     nodemin.x=nodes[0];
@@ -609,78 +650,60 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     
     vec3  deltaU, deltaV, uvOrigin;
     vec3 source;
-    for (unsigned int i=0;i<nangles;i++){
-        if (DEBUG_TIME){
-            cudaEventCreate(&start);
-            cudaEventCreate(&stop);
-            cudaEventRecord(start, 0);
+    for (unsigned int i=0;i<nangles;i+=(unsigned int)deviceCount){
+        for (dev = 0; dev < deviceCount; dev++){
+             cudaSetDevice(dev);
+             gpuErrchk(cudaMemcpyAsync(d_proj[dev],&projections[geo.nDetecU*geo.nDetecV*(i+dev)],num_bytes_proj,cudaMemcpyHostToDevice));
         }
+        cudaDeviceSynchronize(); 
+        for (dev = 0; dev < deviceCount; dev++){
+            geo.alpha=angles[(i+dev)*3];
+            geo.theta=angles[(i+dev)*3+1];
+            geo.psi  =angles[(i+dev)*3+2];
+            computeGeomtricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i+dev);
+         
+            cudaSetDevice(dev);
 
-        gpuErrchk(cudaMemcpyAsync(d_proj,&projections[geo.nDetecU*geo.nDetecV*i],num_bytes_proj,cudaMemcpyHostToDevice));
-        gpuErrchk(cudaPeekAtLastError());
-        gpuErrchk(cudaDeviceSynchronize());
-        geo.alpha=angles[i*3];
-        geo.theta=angles[i*3+1];
-        geo.psi  =angles[i*3+2];
-        computeGeomtricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i);
-        if (DEBUG_TIME){
+            initXrays << <grid,block >> >(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary,d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);
+            graphBackproject<< <grid,block >> >(d_elements[dev],d_nodes[dev],d_boundary[dev],d_neighbours[dev],d_proj[dev],d_auxInit[dev],d_image[dev], geo,source,deltaU,deltaV,uvOrigin);
+        }
+    }
+    cudaDeviceSynchronize();
+    for (dev = 0; dev < deviceCount; dev++) {
+        cudaSetDevice(dev);
+        cudaFree(d_proj[dev]);
+        cudaFree(d_auxInit[dev]);
+        cudaFree(d_nodes[dev]);
+        cudaFree(d_neighbours[dev]);
+        cudaFree(d_elements[dev]);
+        cudaFree(d_boundary[dev]);
+
+    }
+    
+    
+    if(deviceCount>1){
+        mexPrintf("Vector adding triggered\n");
+        cudaSetDevice(0);
+        float* d_imageaux;
+        gpuErrchk(cudaMalloc((void **)&d_imageaux,num_bytes_img));
+        for (dev = 1; dev < deviceCount; dev++){
             
-            cudaEventRecord(stop, 0);
-            cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&timeaux, start, stop);
-            timecopy+=timeaux;
-            
-            cudaEventCreate(&start);
-            cudaEventCreate(&stop);
-            cudaEventRecord(start, 0);
+            gpuErrchk(cudaMemcpyPeer(d_imageaux,0,d_image[dev],dev,num_bytes_img)); 
+            cudaDeviceSynchronize();
+            addVectorsInPlace<<<60,1024>>>(d_image[0],d_imageaux,nelements);    
+        
         }
-        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary,d_auxInit, geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);
+        cudaFree(d_imageaux);
+    }
+    
+    gpuErrchk(cudaMemcpy(result, d_image[0], num_bytes_img, cudaMemcpyDeviceToHost)); 
+    
+    
+    for (dev = 0; dev < deviceCount; dev++) { 
+        cudaSetDevice(dev);
+        cudaFree(d_image[dev]);
+    }
 
-        gpuErrchk(cudaPeekAtLastError());
-        gpuErrchk(cudaDeviceSynchronize());
-        graphBackproject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_proj,d_auxInit,d_image, geo,source,deltaU,deltaV,uvOrigin);
-        
-        gpuErrchk(cudaPeekAtLastError()); 
-        gpuErrchk(cudaDeviceSynchronize());
-        
- 
-        if (DEBUG_TIME){
-            cudaEventRecord(stop, 0);
-            cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&timeaux, start, stop);
-            timekernel+=timeaux;
-        }
-    }
-    
-    
-    if (DEBUG_TIME){
-        mexPrintf("Time of Kenrel:  %3.1f ms \n", timekernel);
-        mexPrintf("Time of memcpy to Host:  %3.1f ms \n", timecopy);
-        
-    }
-    
-    gpuErrchk(cudaMemcpy(result, d_image, num_bytes_img, cudaMemcpyDeviceToHost));
-
-    if (DEBUG_TIME){
-        cudaEventCreate(&start);
-        cudaEventCreate(&stop);
-        cudaEventRecord(start, 0);
-    }
-//     cudaGraphFree(&tempHostGraph,&tempHostElement,&tempHostNode);
-    cudaFree(d_proj);
-    cudaFree(d_auxInit);
-    cudaFree(d_image);
-    cudaFree(d_nodes);
-    cudaFree(d_neighbours);
-    cudaFree(d_elements);
-    cudaFree(d_boundary);
-    if (DEBUG_TIME){
-        cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&time, start, stop);
-        
-        mexPrintf("Time to free:  %3.1f ms \n", time);
-    }
     return;
     
     
