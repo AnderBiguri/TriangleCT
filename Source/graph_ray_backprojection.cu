@@ -4,7 +4,7 @@
 
 // This flag activates timing of the code
 #define DEBUG_TIME 0
-
+#define MAXTHREADS 1024
 
 #define EPSILON 0.000001
 
@@ -22,7 +22,98 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         }
     }
 }
+__device__ __inline__ float maxf_cuda(float a,float b){
+    return (a>b)?a:b;
+}
+__device__ __inline__ float minf_cuda(float a,float b){
+    return (a<b)?a:b;
+}
+__device__ void warpMaxReduce(volatile float *sdata,unsigned int tid) {
+    sdata[tid] = maxf_cuda(sdata[tid + 32],sdata[tid]);
+    sdata[tid] = maxf_cuda(sdata[tid + 16],sdata[tid]);
+    sdata[tid] = maxf_cuda(sdata[tid + 8],sdata[tid]);
+    sdata[tid] = maxf_cuda(sdata[tid + 4],sdata[tid]);
+    sdata[tid] = maxf_cuda(sdata[tid + 2],sdata[tid]);
+    sdata[tid] = maxf_cuda(sdata[tid + 1],sdata[tid]);
     
+}
+__device__ void warpMinReduce(volatile float *sdata,unsigned int tid) {
+    sdata[tid] = minf_cuda(sdata[tid + 32],sdata[tid]);
+    sdata[tid] = minf_cuda(sdata[tid + 16],sdata[tid]);
+    sdata[tid] = minf_cuda(sdata[tid + 8],sdata[tid]);
+    sdata[tid] = minf_cuda(sdata[tid + 4],sdata[tid]);
+    sdata[tid] = minf_cuda(sdata[tid + 2],sdata[tid]);
+    sdata[tid] = minf_cuda(sdata[tid + 1],sdata[tid]);
+    
+}
+__global__ void  maxReduceOffset(float *g_idata, float *g_odata, unsigned long n,unsigned int offset){
+    extern __shared__ volatile float sdata[];
+    
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x*blockDim.x + tid;
+    unsigned int gridSize = blockDim.x*gridDim.x;
+    float myMax = 0;
+    while (i < n) {
+        myMax = maxf_cuda(myMax,g_idata[i*3+offset]);
+        i += gridSize;
+    }
+    sdata[tid] = myMax;
+    __syncthreads();
+    
+    if (tid < 512)
+        sdata[tid] = maxf_cuda(sdata[tid],sdata[tid + 512]);
+    __syncthreads();
+    if (tid < 256)
+        sdata[tid] = maxf_cuda(sdata[tid],sdata[tid + 256]);
+    __syncthreads();
+    
+    if (tid < 128)
+        sdata[tid] = maxf_cuda(sdata[tid],sdata[tid + 128]);
+    __syncthreads();
+    
+    if (tid <  64)
+        sdata[tid] = maxf_cuda(sdata[tid],sdata[tid + 64]);
+    __syncthreads();
+    if (tid <  32){
+        warpMaxReduce(sdata,tid);
+        myMax = sdata[0];
+    }
+    if (tid == 0) g_odata[blockIdx.x] = myMax;
+}
+__global__ void  minReduceOffset(float *g_idata, float *g_odata, unsigned long n,unsigned int offset){
+    extern __shared__ volatile float sdata[];
+    
+    unsigned int tid = threadIdx.x;
+    unsigned int i = blockIdx.x*blockDim.x + tid;
+    unsigned int gridSize = blockDim.x*gridDim.x;
+    float myMin = 0;
+    while (i < n) {
+        myMin = minf_cuda(myMin,g_idata[i*3+offset]);
+        i += gridSize;
+    }
+    sdata[tid] = myMin;
+    __syncthreads();
+    
+    if (tid < 512)
+        sdata[tid] = minf_cuda(sdata[tid],sdata[tid + 512]);
+    __syncthreads();
+    if (tid < 256)
+        sdata[tid] = minf_cuda(sdata[tid],sdata[tid + 256]);
+    __syncthreads();
+    
+    if (tid < 128)
+        sdata[tid] = minf_cuda(sdata[tid],sdata[tid + 128]);
+    __syncthreads();
+    
+    if (tid <  64)
+        sdata[tid] = minf_cuda(sdata[tid],sdata[tid + 64]);
+    __syncthreads();
+    if (tid <  32){
+        warpMinReduce(sdata,tid);
+        myMin = sdata[0];
+    }
+    if (tid == 0) g_odata[blockIdx.x] = myMin;
+}    
 /**************************************************************************
  *********************** vector addition ****************************
  *************************************************************************/
@@ -624,22 +715,17 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     
   
     // Replace by a reduction (?)
+     // Replace by a reduction (?)
     vec3 nodemin, nodemax;
-    nodemin.x=nodes[0];
-    nodemin.y=nodes[1];
-    nodemin.z=nodes[2];
-    nodemax.x=nodes[0];
-    nodemax.y=nodes[1];
-    nodemax.z=nodes[2];
-    
-    for(unsigned long i=1;i<nnodes;i++){
-        nodemin.x=(nodes[i*3+0]<nodemin.x)?nodes[i*3+0]:nodemin.x;
-        nodemin.y=(nodes[i*3+1]<nodemin.y)?nodes[i*3+1]:nodemin.y;
-        nodemin.z=(nodes[i*3+2]<nodemin.z)?nodes[i*3+2]:nodemin.z;
-        nodemax.x=(nodes[i*3+0]>nodemax.x)?nodes[i*3+0]:nodemax.x;
-        nodemax.y=(nodes[i*3+1]>nodemax.y)?nodes[i*3+1]:nodemax.y;
-        nodemax.z=(nodes[i*3+2]>nodemax.z)?nodes[i*3+2]:nodemax.z;
-    }
+    float max[3],min[3];
+    cudaSetDevice(0);
+    reduceNodes(d_nodes[0], nnodes, max, min);
+    nodemax.x=max[0];
+    nodemax.y=max[1];
+    nodemax.z=max[2];
+    nodemin.x=min[0];
+    nodemin.y=min[1];
+    nodemin.z=min[2];
     
     // KERNEL TIME!
     int divU,divV;
@@ -708,7 +794,61 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     
     
 }
+void reduceNodes(float *d_nodes, unsigned long nnodes, float* max, float* min){
+    
+    int divU;
+    divU=MAXTHREADS;
+    dim3 grid((nnodes+divU-1)/divU,1,1);
+    dim3 block(divU,1,1);
+    
+    
+    //auxiliary for reduction
+    float* d_auxmax,*d_auxmin;
+    gpuErrchk(cudaMalloc((void **)&d_auxmax, sizeof(float)*(nnodes + MAXTHREADS - 1) / MAXTHREADS));
+    gpuErrchk(cudaMalloc((void **)&d_auxmin, sizeof(float)*(nnodes + MAXTHREADS - 1) / MAXTHREADS));
 
+    //gpuErrchk(cudaMalloc((void **)&debugreduce,MAXTHREADS*sizeof(float)));
+    
+    float** getFinalreducesmin=(float**)malloc(3*sizeof(float*));
+    float** getFinalreducesmax=(float**)malloc(3*sizeof(float*));
+
+    for (unsigned int i=0; i<3; i++){
+        getFinalreducesmin[i]=(float*)malloc(MAXTHREADS*sizeof(float));
+        getFinalreducesmax[i]=(float*)malloc(MAXTHREADS*sizeof(float));
+    }
+    
+    
+    // for X,Y,Z
+    for (unsigned int i=0; i<3; i++){
+        maxReduceOffset<<<grid, block, MAXTHREADS*sizeof(float)>>>(d_nodes, d_auxmax, nnodes,i);
+        minReduceOffset<<<grid, block, MAXTHREADS*sizeof(float)>>>(d_nodes, d_auxmin, nnodes,i);
+
+        gpuErrchk(cudaPeekAtLastError());
+        gpuErrchk(cudaDeviceSynchronize());
+        
+        if (grid.x > 1) {
+            // There shoudl be another reduce here, but, as in the reduce code we have we are accessing every 3 values
+            // that means that we can not reuse it. The most efficient way of doing it is doing the final reduce (<1024) on cpu
+            // therefore avoiding a deep copy. We coudl also rewrite the reduce twice, but its not worth my time now (D:).
+            gpuErrchk(cudaMemcpy( getFinalreducesmin[i], d_auxmin,grid.x*sizeof(float), cudaMemcpyDeviceToHost));
+            gpuErrchk(cudaMemcpy( getFinalreducesmax[i], d_auxmax,grid.x*sizeof(float), cudaMemcpyDeviceToHost));
+            max[i]=getFinalreducesmax[i][0];
+            max[i]=getFinalreducesmin[i][0];
+            for (unsigned int j=1;j<grid.x;j++){
+                max[i]=( getFinalreducesmax[i][j]>max[i])? getFinalreducesmax[i][j]:max[i];
+                min[i]=( getFinalreducesmin[i][j]<min[i])? getFinalreducesmin[i][j]:min[i];
+            }
+        } else {
+            gpuErrchk(cudaMemcpy(&max[i], d_auxmax, sizeof(float), cudaMemcpyDeviceToHost));
+            gpuErrchk(cudaMemcpy(&min[i], d_auxmin, sizeof(float), cudaMemcpyDeviceToHost));
+
+        }
+        gpuErrchk(cudaPeekAtLastError());
+        gpuErrchk(cudaDeviceSynchronize());
+    }
+    cudaFree(d_auxmax);
+    cudaFree(d_auxmin);
+}
 
 
 // TODO: quite a lot of geometric transforms.

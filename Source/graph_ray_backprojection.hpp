@@ -21,6 +21,8 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
                     const unsigned long* boundary,const unsigned long nboundary,
                     float * result);
 // Memory related
+void reduceNodes(float *d_nodes, unsigned long nnodes, float* max,float* min);
+
 void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle);
 void eulerZYZ(Geometry geo,  vec3* point);
 #endif
