@@ -80,5 +80,9 @@ for ii=1:size(TRI,1)
 end
 graph.boundary_elems=int32(boundary);
 
-
+if length(graph.boundary_elems)>12
+    warning(['Your boundary is not minimal (length=' num2str(length(graph.boundary_elems)) ')' newline ...
+        'For optimal GPU computing speed, the length of the boundary has to be as close to 12 as possible.' newline ...
+        'If your boundary is significantly larger than this, consider using the fucntion reduceBoundary()'])
+end
 end
