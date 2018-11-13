@@ -271,6 +271,7 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
     
+    
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
     
@@ -311,6 +312,7 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
                 }
             }
         }
+        
         safetyEpsilon=safetyEpsilon*10;
     }
     d_res[idx]=(float)crossingID;
@@ -329,7 +331,8 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     unsigned long  idx =  x  * geo.nDetecV + y;
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
-
+    
+    
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
     
@@ -342,7 +345,6 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     
     //  Get the coordinates of the detector for this kernel
     vec3 det;
-    
     det.x=(uvOrigin.x+pixelU*deltaU.x+pixelV*deltaV.x);
     det.y=(uvOrigin.y+pixelU*deltaU.y+pixelV*deltaV.y);
     det.z=(uvOrigin.z+pixelU*deltaU.z+pixelV*deltaV.z);
@@ -511,11 +513,9 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         const unsigned long* boundary,const unsigned long nboundary,
         float ** result)
 {
-    
     // Prepare for MultiGPU
     int deviceCount = 0;
-    cudaGetDeviceCount(&deviceCount);
-    deviceCount = 1;
+    gpuErrchk(cudaGetDeviceCount(&deviceCount));
     if (deviceCount == 0) {
         mexErrMsgIdAndTxt("TriangleCT:graphForward:GPUselect","There are no available device(s) that support CUDA\n");
     }
@@ -551,12 +551,21 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     unsigned long long mem_needed_graph=num_bytes_img+num_bytes_nodes+num_bytes_elements+num_bytes_neighbours+num_bytes_boundary;
     unsigned long long mem_free_GPU=mem_GPU_global-mem_needed_graph;
     
+//     mexPrintf(" num_bytes_img %llu \n", num_bytes_img );
+//     mexPrintf("num_bytes_nodes  %llu \n", num_bytes_nodes );
+//     mexPrintf("num_bytes_elements  %llu \n",  num_bytes_elements);
+//     mexPrintf("num_bytes_neighbours  %llu \n", num_bytes_neighbours );
+//     mexPrintf("num_bytes_boundary  %llu \n",  num_bytes_boundary);
+// //
+//     mexPrintf("num_bytes_needed  %llu \n", mem_needed_graph);
+//     mexPrintf("num_bytes_GPU %llu \n", mem_GPU_global );
     
     size_t num_bytes_proj = geo.nDetecU*geo.nDetecV * sizeof(float);
-    if (num_bytes_proj>mem_free_GPU)
-        mexErrMsgIdAndTxt("TriangleCT:graphForward:Memory","The entire mesh + 1 projection do not fit on a GPU.\n Dividig the projections is not supported \n");
     if (mem_needed_graph>mem_GPU_global)
         mexErrMsgIdAndTxt("TriangleCT:graphForward:Memory","The entire mesh does not fit on the GPU \n");
+    if (num_bytes_proj>mem_free_GPU)
+        mexErrMsgIdAndTxt("TriangleCT:graphForward:Memory","The entire mesh + attenuation values + 2 projection do not fit on a GPU.\n Dividig the projections is not supported \n");
+    
     
     
     
@@ -570,45 +579,44 @@ void graphForwardRay(float const * const  image,  Geometry geo,
         cudaEventRecord(start, 0);
     }
     
-    float ** d_res=(float **)malloc(deviceCount*sizeof(float*));
-    float* d_image;
-    float * d_nodes;
-    unsigned long * d_elements;
-    long * d_neighbours;
-    unsigned long * d_boundary;
+    float ** d_res= (float **)malloc(deviceCount*sizeof(float*));
+    float** d_image=(float **)malloc(deviceCount*sizeof(float*));
+    float** d_nodes=(float **)malloc(deviceCount*sizeof(float*));
+    unsigned long** d_elements=(unsigned long **)malloc(deviceCount*sizeof(unsigned long*));
+    long ** d_neighbours=( long **)malloc(deviceCount*sizeof(long*));
+    unsigned long** d_boundary=(unsigned long **)malloc(deviceCount*sizeof(unsigned long*));
     for (dev = 0; dev < deviceCount; dev++) {
-        
         cudaSetDevice(dev);
-
+        
         // First send all the relevant data to CUDA, and allocate enough memory for the result
         
         gpuErrchk(cudaMalloc((void **)&d_res[dev],num_bytes_proj));
         
         
-        gpuErrchk(cudaMalloc((void **)&d_image,num_bytes_img));
-        gpuErrchk(cudaMemcpyAsync(d_image,image,num_bytes_img,cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMalloc((void **)&d_image[dev],num_bytes_img));
+        gpuErrchk(cudaMemcpyAsync(d_image[dev],image,num_bytes_img,cudaMemcpyHostToDevice));
         
         
-        gpuErrchk(cudaMalloc((void **)&d_nodes,num_bytes_nodes));
-        gpuErrchk(cudaMemcpyAsync(d_nodes,nodes,num_bytes_nodes,cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMalloc((void **)&d_nodes[dev],num_bytes_nodes));
+        gpuErrchk(cudaMemcpyAsync(d_nodes[dev],nodes,num_bytes_nodes,cudaMemcpyHostToDevice));
         
         
-        gpuErrchk(cudaMalloc((void **)&d_elements,num_bytes_elements));
-        gpuErrchk(cudaMemcpyAsync(d_elements,elements,num_bytes_elements,cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMalloc((void **)&d_elements[dev],num_bytes_elements));
+        gpuErrchk(cudaMemcpyAsync(d_elements[dev],elements,num_bytes_elements,cudaMemcpyHostToDevice));
         
         
-        gpuErrchk(cudaMalloc((void **)&d_neighbours,num_bytes_neighbours));
-        gpuErrchk(cudaMemcpyAsync(d_neighbours,neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMalloc((void **)&d_neighbours[dev],num_bytes_neighbours));
+        gpuErrchk(cudaMemcpyAsync(d_neighbours[dev],neighbours,num_bytes_neighbours,cudaMemcpyHostToDevice));
         
         
-        gpuErrchk(cudaMalloc((void **)&d_boundary,num_bytes_boundary));
-        gpuErrchk(cudaMemcpyAsync(d_boundary,boundary,num_bytes_boundary,cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMalloc((void **)&d_boundary[dev],num_bytes_boundary));
+        gpuErrchk(cudaMemcpyAsync(d_boundary[dev],boundary,num_bytes_boundary,cudaMemcpyHostToDevice));
         
         
         
     }
-
-
+    
+    
     if (DEBUG_TIME){
         cudaEventRecord(stop, 0);
         cudaEventSynchronize(stop);
@@ -644,47 +652,35 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     
     vec3  deltaU, deltaV, uvOrigin;
     vec3 source;
-    
-    for (unsigned int i=0;i<nangles;i++){
-        geo.alpha=angles[i*3];
-        geo.theta=angles[i*3+1];
-        geo.psi  =angles[i*3+2];
+    for (unsigned int i=0;i<nangles;i+=(unsigned int)deviceCount){
+        for (dev = 0; dev < deviceCount; dev++){
+            geo.alpha=angles[(i+dev)*3];
+            geo.theta=angles[(i+dev)*3+1];
+            geo.psi  =angles[(i+dev)*3+2];
+            
+            //dev=i%deviceCount;
+            //dev=0;
+            
+            
+            computeGeometricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i+dev);
+            
+            //gpuErrchk(cudaDeviceSynchronize());
+            
+            cudaSetDevice(dev);
+            initXrays << <grid,block >> >(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_res[dev], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);
+            
+            graphProject<< <grid,block >> >(d_elements[dev],d_nodes[dev],d_boundary[dev],d_neighbours[dev],d_image[dev],d_res[dev], geo,source,deltaU,deltaV,uvOrigin);
+        }
         
-        dev=i%deviceCount;
-        dev=0;
-        cudaSetDevice(dev);
-         
-        computeGeometricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i);
-        if (DEBUG_TIME){
-            cudaEventCreate(&start);
-            cudaEventCreate(&stop);
-            cudaEventRecord(start, 0);
+        
+        for (dev = 0; dev < deviceCount; dev++){
+            //gpuErrchk(cudaDeviceSynchronize());
+            cudaSetDevice(dev);
+            gpuErrchk(cudaMemcpyAsync(result[i+dev], d_res[dev], num_bytes_proj, cudaMemcpyDeviceToHost));
         }
 
-        initXrays << <grid,block >> >(d_elements,d_nodes,d_boundary,nboundary, d_res[dev], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);      
-        graphProject<< <grid,block >> >(d_elements,d_nodes,d_boundary,d_neighbours,d_image,d_res[dev], geo,source,deltaU,deltaV,uvOrigin);
-        
-        if (DEBUG_TIME){
-            
-            cudaEventRecord(stop, 0);
-            cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&timeaux, start, stop);
-            timekernel+=timeaux;
-            
-            cudaEventCreate(&start);
-            cudaEventCreate(&stop);
-            cudaEventRecord(start, 0);
-        }
-        
-        gpuErrchk(cudaMemcpyAsync(result[i], d_res[dev], num_bytes_proj, cudaMemcpyDeviceToHost));
-        
-        if (DEBUG_TIME){
-            cudaEventRecord(stop, 0);
-            cudaEventSynchronize(stop);
-            cudaEventElapsedTime(&timeaux, start, stop);
-            timecopy+=timeaux;
-        }
     }
+    
     
     
     if (DEBUG_TIME){
@@ -703,12 +699,12 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     for (dev = 0; dev < deviceCount; dev++) {
         cudaSetDevice(dev);
         cudaFree(d_res[dev]);
+        cudaFree(d_image[dev]);
+        cudaFree(d_nodes[dev]);
+        cudaFree(d_neighbours[dev]);
+        cudaFree(d_elements[dev]);
+        cudaFree(d_boundary[dev]);
     }
-    cudaFree(d_image);
-    cudaFree(d_nodes);
-    cudaFree(d_neighbours);
-    cudaFree(d_elements);
-    cudaFree(d_boundary);
     if (DEBUG_TIME){
         cudaEventRecord(stop, 0);
         cudaEventSynchronize(stop);
