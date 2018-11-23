@@ -622,7 +622,6 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     // Prepare for MultiGPU
     int deviceCount = 0;
     gpuErrchk(cudaGetDeviceCount(&deviceCount));
-    mexPrintf("Devices: %d",deviceCount);
     if (deviceCount == 0) {
         mexErrMsgIdAndTxt("TriangleCT:graphBackward:GPUselect","There are no available device(s) that support CUDA\n");
     }

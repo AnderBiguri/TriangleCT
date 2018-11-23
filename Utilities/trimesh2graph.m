@@ -1,6 +1,7 @@
 function graph=trimesh2graph(TRI,points)
 %TRIMESH2GRAPH converts the triangulated mesh into a connected graph
-
+TRI=double(TRI);
+points=double(points);
 
 nD=size(points,2);
 
