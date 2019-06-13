@@ -1,25 +1,39 @@
-function [intersected]=isLineTriangleIntersect(line,triangle)
+function [intersected,t]=isLineTriangleIntersect(line,triangle)
+t=-1;
 
-
+if nargout >1
+    return_t=true;
+else 
+    return_t=false;
+end
 
 if size(triangle,2)==2
     intersected=isLineTriangleIntersect2D(line,triangle);
 else
-    intersected=isLineTriangleIntersect3D(line,triangle);
+    [intersected,t]=isLineTriangleIntersect3D(line,triangle,return_t);
 end
 end
 
 
-function intersected=isLineTriangleIntersect3D(line,triangle)
-
-    intersected=mollerTrumbore(line,triangle([1 2 3],:));
-    if intersected; return; end
-    intersected=mollerTrumbore(line,triangle([1 2 4],:));
-    if intersected; return; end
-    intersected=mollerTrumbore(line,triangle([1 3 4],:));
-    if intersected; return; end
-    intersected=mollerTrumbore(line,triangle([2 3 4],:));
-    if intersected; return; end
+function [intersected, t]=isLineTriangleIntersect3D(line,triangle,return_t)
+    t=[Inf Inf Inf Inf];
+    intersected=[0 0 0 0];
+    [intersected(1),~,~,t(1)]=mollerTrumbore(line,triangle([1 2 3],:));
+    if ~return_t && intersected(1); return; end
+    [intersected(2),~,~,t(2)]=mollerTrumbore(line,triangle([1 2 4],:));
+    if ~return_t &&intersected(2); return; end
+    [intersected(3),~,~,t(3)]=mollerTrumbore(line,triangle([1 3 4],:));
+    if ~return_t && intersected(3); return; end
+    [intersected(4),~,~,t(4)]=mollerTrumbore(line,triangle([2 3 4],:));
+    if ~return_t && intersected(4); return; end
+    
+    intersected=any(intersected);
+    if intersected
+    	t=min(t(t>0));
+    else
+        t=0;
+    end
+    
 end
 
 

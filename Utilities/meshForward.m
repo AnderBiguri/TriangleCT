@@ -30,17 +30,17 @@ vs = ((-geo.nDetector(2)/2+0.5):1:(geo.nDetector(2)/2-0.5))*geo.dDetector(2) + g
 source=[+geo.DSO(1),0,0];
 R =@(theta)( [cos(theta) -sin(theta) 0; sin(theta) cos(theta) 0; 0 0 1]);
 % Loop every projection
+
+
+tinit=0;
+tcore=0;
+
 for k=1:nangles
     % for every pixell in the detector
-%         for ii=1:geo.nDetector(2)
-%             for jj=1:geo.nDetector(1)
-    for ii=309
-        for jj=216
-            
-            
-            %           proj(ii,jj,k)=1;
-            %           return
-            
+%     for ii=1:geo.nDetector(2)
+%         for jj=1:geo.nDetector(1)
+                for ii=256
+                    for jj=256
             
             
             ray=[source; -(geo.DSD(1)-geo.DSO(1)), us(jj), vs(ii)];
@@ -51,44 +51,53 @@ for k=1:nangles
             if flag==0
                 continue;
             end
+            
             % TODO: fix following
             % WARNING: for now lets assume mesh in convex.
-            initInter=1.1;
-            % find an intersection with the boundary.
-            
+%             initInter=1.1;
+%             % find an intersection with the boundary.
+%             
+%             tic
             epsilon=1e-6;
-            notintersect=length(graph.boundary_elems);
-            while notintersect==length(graph.boundary_elems)
-                notintersect=0;
-                for bb=1:length(graph.boundary_elems)
-                    [t]=lineTriangleIntersectLength2_safe(ray,nodes(graph.elements(graph.boundary_elems(bb)).nodeId,:),epsilon);
-                    if sum(t)==0
-                        notintersect=notintersect+1;
-                    else
-                        % interesction!
-                        t1=min(t(t>0));
-                        if initInter>t1
-                            initInter=t1;
-                            initInterind=bb;
-                        end
-                    end
-                end
-                epsilon=epsilon*10;
-            end
-            epsilon=epsilon/10;
+%             notintersect=length(graph.boundary_elems);
+%             while notintersect==length(graph.boundary_elems)
+%                 notintersect=0;
+%                 for bb=1:length(graph.boundary_elems)
+%                     [t]=lineTriangleIntersectLength2_safe(ray,nodes(graph.elements(graph.boundary_elems(bb)).nodeId,:),epsilon);
+%                     if sum(t)==0
+%                         notintersect=notintersect+1;
+%                     else
+%                         % interesction!
+%                         t1=min(t(t>0));
+%                         if initInter>t1
+%                             initInter=t1;
+%                             initInterind=bb;
+%                         end
+%                     end
+%                 end
+%                 epsilon=epsilon*10;
+%             end
+%             epsilon=epsilon/10;
+%             tinit=tinit+toc;
+            tic
+            [initInterind,t]=R_tree_search(graph.tree,ray,graph);
+            tinit=toc;         
+
+            tic;
             % if we looked at the whole boudnary and no intersection was found,
             % then the ray is outside the mesh. OUT!
             
             % now start line search from indes bb.
             % lets get the intersection of that boundary element
             [t]=lineTriangleIntersectLength2_safe(ray,nodes(graph.elements(graph.boundary_elems(initInterind)).nodeId,:),epsilon);
-            
+             
             % assuming 2 intersections
             %             if nnz(t)~=2
             %                 keyboard
             %             end
             [t2,indt]=max(t);
             t1=min(t(t>0));
+       
             %             disp(['Elem: ',num2str(graph.boundary_elems(initInterind)),' t1: ',num2str(t1),' t2: ',num2str(t2)]);
             %             fprintf("%.16f %.16f %.16f\n",ray(1),ray(3),ray(5));
             %             fprintf("%.16f %.16f %.16f\n",ray(2),ray(4),ray(6));
@@ -97,8 +106,8 @@ for k=1:nangles
             %             intersectPoints(1,:)=t1*vecline; %+line(1,:)
             %             intersectPoints(2,:)=t2*vecline; %+line(1,:)
             %             d=sqrt(sum((intersectPoints(2,:)-intersectPoints(1,:)) .^2) );
-            fprintf("%u %.16f %.16f\n",uint32(graph.boundary_elems(initInterind)),t1,t2);
-
+            %             fprintf("%u %.16f %.16f\n",uint32(graph.boundary_elems(initInterind)),t1,t2);
+            
             proj(ii,jj,k)=proj(ii,jj,k)+d*TRIvals(graph.boundary_elems(initInterind));
             
             %             neighbours=graph.elements(graph.boundary_elems(initInterind)).neighbours;
@@ -143,7 +152,7 @@ for k=1:nangles
                 [t2,indt]=max(t);
                 [t1]=min(t+2*(t==0));
                 
-                  fprintf("%u %.16f %.16f\n",uint32(current_tri),t1,t2);
+                %                   fprintf("%u %.16f %.16f\n",uint32(current_tri),t1,t2);
                 if abs(t2-t1)<1e-8
                     t2=t1;
                     t(indt)=t1;
@@ -198,6 +207,7 @@ for k=1:nangles
                         end
                         break;
                     end
+                    tcore=tcore+toc;
                     continue;
                 end
                 notneighb=true;
@@ -212,5 +222,7 @@ for k=1:nangles
     end
 end
 
+disp(tinit)
+disp(tcore)
 
 end

@@ -178,7 +178,7 @@ __device__ __inline__ int nnz(float *t){
 /**************************************************************************
  *********************** Moller trumbore **********************************
  **************************************************************************/
-__device__ __inline__ float moller_trumbore(const vec3 ray1, const vec3 ray2,
+__device__ __inline__ float moller_trumbore(const float3 ray1, const float3 ray2,
         const vec3d trip1,const vec3d trip2,const vec3d trip3, const float safetyEpsilon){
     
     
@@ -227,7 +227,7 @@ __device__ __inline__ float moller_trumbore(const vec3 ray1, const vec3 ray2,
  *************************************************************************/
 
 __device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,const float *vertices,
-        const vec3 ray1, const vec3 ray2,
+        const float3 ray1, const float3 ray2,
         const unsigned long elementId,float *t,bool computelenght,const float safetyEpsilon){
     
     unsigned long auxNodeId[4];
@@ -286,8 +286,8 @@ __device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,cons
  ***************************Intersection between line-box******************
  *************************************************************************/
 
-__device__ bool rayBoxIntersect(const vec3 ray1, const vec3 ray2,const vec3 nodemin, const vec3 nodemax){
-    vec3 direction;
+__device__ bool rayBoxIntersect(const float3 ray1, const float3 ray2,const float3 nodemin, const float3 nodemax){
+    float3 direction;
     direction.x=ray2.x-ray1.x;
     direction.y=ray2.y-ray1.y;
     direction.z=ray2.z-ray1.z;
@@ -354,7 +354,7 @@ __device__ bool rayBoxIntersect(const vec3 ray1, const vec3 ray2,const vec3 node
 __global__ void initXrays(const unsigned long* elements, const float* vertices,
         const unsigned long *boundary,const unsigned long nboundary,
         float * d_res, Geometry geo,
-        const vec3 source,const vec3 deltaU,const vec3 deltaV,const vec3 uvOrigin,const vec3 nodemin,const vec3 nodemax)
+        const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const float3 nodemin,const float3 nodemax)
 {
     
     unsigned long  y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -369,7 +369,7 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
     
     
     // Compute detector position
-    vec3 det;
+    float3 det;
     det.x=(uvOrigin.x+pixelU*deltaU.x+pixelV*deltaV.x);
     det.y=(uvOrigin.y+pixelU*deltaU.y+pixelV*deltaV.y);
     det.z=(uvOrigin.z+pixelU*deltaU.z+pixelV*deltaV.z);
@@ -416,7 +416,7 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
  *************************************************************************/
 
 __global__ void graphProject(const unsigned long *elements, const float *vertices,const unsigned long *boundary,const long *neighbours, const float * d_image, float * d_res, Geometry geo,
-        vec3 source, vec3 deltaU, vec3 deltaV, vec3 uvOrigin){
+        float3 source, float3 deltaU, float3 deltaV, float3 uvOrigin){
     
     unsigned long  y = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned long  x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -436,7 +436,7 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     
     
     //  Get the coordinates of the detector for this kernel
-    vec3 det;
+    float3 det;
     det.x=(uvOrigin.x+pixelU*deltaU.x+pixelV*deltaV.x);
     det.y=(uvOrigin.y+pixelU*deltaU.y+pixelV*deltaV.y);
     det.z=(uvOrigin.z+pixelU*deltaU.z+pixelV*deltaV.z);
@@ -477,7 +477,7 @@ __global__ void graphProject(const unsigned long *elements, const float *vertice
     t1=min4nz(t);
     
     // Lets get the ray (direction) and the current intersection length.
-    vec3 direction,p1,p2;
+    float3 direction,p1,p2;
     direction.x=det.x-source.x;     direction.y=det.y-source.y;     direction.z=det.z-source.z;
     p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
     p1.x=direction.x* (t1);  p1.y=direction.y* (t1); p1.z=direction.z* (t1);
@@ -717,7 +717,7 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     }
     
     // Replace by a reduction (?)
-    vec3 nodemin, nodemax;
+    float3 nodemin, nodemax;
     float max[3],min[3];
     cudaSetDevice(0);
     reduceNodes(d_nodes[0], nnodes, max, min);
@@ -735,8 +735,8 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     dim3 grid((geo.nDetecU+divU-1)/divU,(geo.nDetecV+divV-1)/divV,1);
     dim3 block(divU,divV,1);
     
-    vec3  deltaU, deltaV, uvOrigin;
-    vec3 source;
+    float3  deltaU, deltaV, uvOrigin;
+    float3 source;
     for (unsigned int i=0;i<nangles;i+=(unsigned int)deviceCount){
         for (dev = 0; dev < deviceCount; dev++){
             geo.alpha=angles[(i+dev)*3];
@@ -861,11 +861,11 @@ void reduceNodes(float *d_nodes, unsigned long nnodes, float* max, float* min){
 
 
 // TODO: quite a lot of geometric transforms.
-void computeGeometricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle){
+void computeGeometricParams(const Geometry geo,float3 * source, float3* deltaU, float3* deltaV, float3* originUV,unsigned int idxAngle){
     
-    vec3 auxOriginUV;
-    vec3 auxDeltaU;
-    vec3 auxDeltaV;
+    float3 auxOriginUV;
+    float3 auxDeltaU;
+    float3 auxDeltaV;
     auxOriginUV.x=-(geo.DSD[idxAngle]-geo.DSO[idxAngle]);
     // top left
     auxOriginUV.y=-geo.sDetecU/2+/*half a pixel*/geo.dDetecU/2;
@@ -884,7 +884,7 @@ void computeGeometricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3
     auxDeltaV.y=auxOriginUV.y;
     auxDeltaV.z=auxOriginUV.z-geo.dDetecV;
     
-    vec3 auxSource;
+    float3 auxSource;
     auxSource.x=geo.DSO[idxAngle];
     auxSource.y=0;
     auxSource.z=0;
@@ -912,8 +912,8 @@ void computeGeometricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3
     return;
 }
 
-void eulerZYZ(Geometry geo,  vec3* point){
-    vec3 auxPoint;
+void eulerZYZ(Geometry geo,  float3* point){
+    float3 auxPoint;
     auxPoint.x=point->x;
     auxPoint.y=point->y;
     auxPoint.z=point->z;

@@ -10,6 +10,8 @@ function [result]=OS_SART(proj,geo,angles,graph, niter,varargin)
 result=zeros(size(graph.elements,2),1,'single');
 W=projection(ones(size(result),'single'),geo,angles,graph);
 W(W<.0000001)=Inf;
+
+
 for jj=1:size(proj,3)
     V(:,jj)=backprojection(ones(size(proj),'single'),geo,angles(jj),graph)+eps;
 end

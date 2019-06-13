@@ -48,7 +48,7 @@ function [flag, u, v, t] = mollerTrumbore (ray,tri)
     if nargout>3
         t = f*dot(e2,r); % verified! 
     end
-    fprintf("%.16f %.16f %.16f\n",u,v,t);
+%     fprintf("%.16f %.16f %.16f\n",u,v,t);
     flag = 1;
     return
 end

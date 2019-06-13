@@ -53,21 +53,23 @@ angles=linspace(0,2*pi-2*pi/nangles,nangles);
 %% Create sample data
 
 P = phantom('Modified Shepp-Logan',200);
-P(P<0)=0;
-
+% P(P>0)=P(P>0)+0.1;
+P(P<0)=P(P<0)+0.1;
+ P = imgaussfilt(P,4);
+ 
 [graph,trivals,nodevals]=voxel2mesh(P,geo,'minPoissonDistance',1);
 plotGraph2D(graph,trivals);
 plotGraph2D(graph,nodevals);
 
 % %%
-tic
-proj=meshForward(trivals,geo,angles,graph);
-toc
+% tic
+% proj=meshForward(trivals,geo,angles,graph);
+% toc
 % tic
 % bproj=meshBack(proj,geo,angles,graph);
 % toc
 %%
-[graphtest]=voxel2mesh(ones(size(P)),geo,'minPoissonDistance',1);
+% [graphtest]=voxel2mesh(ones(size(P)),geo,'minPoissonDistance',1);
 
-res=SART(proj,geo,angles,graphtest,30);
+% res=SART(proj,geo,angles,graphtest,30);
 

@@ -36,6 +36,6 @@ void reduceNodes(float *d_nodes, unsigned long nnodes, float* max,float* min);
 void cudaGraphMalloc(const Graph* inGraph, Graph **outGraph, Graph** outGraphHost, Element ** outElementHost, Node** outNodeHost);
 void cudaGraphFree(Graph** tempHostGraph, Element** tempHostElement, Node** tempHostNode );
 
-void computeGeometricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle);
-void eulerZYZ(Geometry geo,  vec3* point);
+void computeGeometricParams(const Geometry geo,float3 * source, float3* deltaU, float3* deltaV, float3* originUV,unsigned int idxAngle);
+void eulerZYZ(Geometry geo,  float3* point);
 #endif

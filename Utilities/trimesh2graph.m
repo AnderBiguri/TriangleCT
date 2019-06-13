@@ -42,21 +42,20 @@ for ii=1:size(TRI,1)
     % ABOVE NOT TRUE
 %     assert(length(graph.elements(ii).neighbours)<=(nD+1) && length(graph.elements(ii).neighbours)>=nD);
 end
-
 % sort neighbours
 for ii=1:size(TRI,1)
     ind=[1 2 3; 1 2 4; 1 3 4; 2 3 4];
     nodes=graph.elements(ii).nodeId;
-    newind=zeros(4,1);
+    newind=zeros(nD+1,1);
     for jj=1:length(graph.elements(ii).neighbours)
         nnodes=graph.elements(graph.elements(ii).neighbours(jj)).nodeId;
-        for kk=1:4
+        for kk=1:nD+1
             if sum(ismember(nodes(ind(kk,:)),nnodes))==3
                 newind(kk)=jj;
             end
         end
     end
-    neighbours=zeros(1,4,'int32');
+    neighbours=zeros(1,nD+1,'int32');
     for jj=1:4
         if newind(jj)~=0
             neighbours(jj)=graph.elements(ii).neighbours(newind(jj));
