@@ -23,8 +23,8 @@
 #include <string.h>
 #include <time.h>
 Geometry initGeo(mxArray* geometryMex, const unsigned int nangles);
-Graph initGraph(mxArray* graphMex);
-void unfuckGraphTemp(Graph* graph);
+// Graph initGraph(mxArray* graphMex);
+// void unfuckGraphTemp(Graph* graph);
 
 
 /*********************************************************************
@@ -36,7 +36,7 @@ void mexFunction(int  nlhs , mxArray *plhs[],
     
     clock_t begin = clock();
     // Check number of inputs
-    if (nrhs!=7) {
+    if (nrhs!=8) {
         mexErrMsgIdAndTxt("MEX:graphForward:InvalidInput", "Invalid number of inputs to MEX file.");
     }
     
@@ -100,7 +100,93 @@ void mexFunction(int  nlhs , mxArray *plhs[],
     unsigned long const * const boundary = static_cast<unsigned long const *>(mxGetData(boundaryMex));
     const mwSize*  mwSizeboundary=mxGetDimensions(boundaryMex);
     unsigned long nboundary=mwSizeboundary[0];
+     /*********************************************************************
+     *********************** eight Input:R*tree structure***************************
+     ********************************************************************/
+    int nfields = mxGetNumberOfFields(prhs[7]);
     
+    const char **fnames;       /* pointers to field names */
+    fnames =(const char**) mxCalloc(nfields, sizeof(*fnames));
+    
+    fnames[0] = "M";
+    int M;
+    fnames[1] = "m";
+    int m;
+    fnames[2] = "bin_n_elements";
+    int* bin_n_elements;
+    fnames[3] = "bin_elements";
+    long* bin_elements;
+    fnames[4] = "bin_box";
+    double* bin_box;
+    fnames[5] = "nD";
+    // we dont need it, this code is only for nD=3;
+    fnames[6] = "MBR";
+    double *MBR;
+    fnames[7] = "isleaf";
+    bool* isleaf;
+    fnames[8] = "root";
+    long root;
+    fnames[9] = "depth";
+    int depth;
+    
+    long length_tree;
+    
+    double * aux;
+    int* auxint;
+    const mwSize*  mwSizeTree;
+    
+    mxArray *tmp;
+    for(int ifield=0; ifield<nfields; ifield++) {
+        tmp=mxGetField(prhs[7],0,fnames[ifield]);
+        if(tmp==NULL){
+            //tofix
+            continue;
+        }
+        switch(ifield){
+            case 0:
+                auxint=static_cast<int *>(mxGetData(tmp));
+                M=(int)auxint[0];
+                break;
+            case 1:
+                auxint=static_cast<int *>(mxGetData(tmp));
+                m=(int)auxint[0];
+                break;
+            case 2:
+                bin_n_elements=static_cast<int *>(mxGetData(tmp));
+                mwSizeTree=mxGetDimensions(tmp);
+                length_tree=(long)mwSizeTree[1];
+                break;
+            case 3:
+                bin_elements=static_cast<long *>(mxGetData(tmp));
+                break;
+            case 4:
+                bin_box=static_cast<double *>(mxGetData(tmp));
+                break;
+            case 5:
+                 //nothing
+                break;
+            case 6:
+                MBR=static_cast<double *>(mxGetData(tmp));
+                break;
+            case 7:
+                isleaf=static_cast<bool *>(mxGetData(tmp));
+                break;
+            case 8:
+                auxint=static_cast<int *>(mxGetData(tmp));
+                root=(int)auxint[0];
+                break;
+            case 9:
+                auxint=static_cast<int *>(mxGetData(tmp));
+                depth=(int)auxint[0];
+                break;                
+            default:
+                mexErrMsgIdAndTxt("Graph:Ax", "Unknwon field in R*-tree");
+                break;
+                
+        }
+    }
+    
+
     
     clock_t end = clock();
     double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
@@ -130,7 +216,7 @@ void mexFunction(int  nlhs , mxArray *plhs[],
      time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
 //     mexPrintf("Time to generate output memory: %f\n",time_spent);
     
-        begin=clock();
+    begin=clock();
 
     graphForwardRay(img,geo,
                         angles,nangles,
@@ -138,6 +224,7 @@ void mexFunction(int  nlhs , mxArray *plhs[],
                         elements,nelements,
                         neighbours,nneighbours,
                         boundary,nboundary,
+                        bin_n_elements,bin_elements,bin_box,M,m,MBR,isleaf,root,length_tree,depth, // R tree stuff. Yeah messy way, better with some structure or something. For now: Fuck it, I just want this finished
                         result);
     end = clock();
     time_spent = (double)(end - begin) / CLOCKS_PER_SEC;

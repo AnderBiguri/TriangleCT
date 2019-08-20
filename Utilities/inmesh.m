@@ -22,6 +22,7 @@ rangez=[min(fv.vertices(:,3)) max(fv.vertices(:,3))];
 maxs=[max(fv.vertices(:,1)),max(fv.vertices(:,2)),max(fv.vertices(:,3))];
 [~,dimmin]=min(diff([rangex;rangey;rangez],[],2));
 % dimmin=3;
+t=[];
 for ii=1:size(points,1)
     
     ray=[points(ii,:);points(ii,:)];ray(2,dimmin)=maxs(dimmin)+1;
@@ -30,9 +31,12 @@ for ii=1:size(points,1)
         if all(v(:,1)<ray(1,1))||all(v(:,1)>ray(2,1))||all(v(:,2)<ray(1,2))||all(v(:,2)>ray(2,2))||all(v(:,3)<ray(1,3))||all(v(:,3)>ray(2,3))
             continue;
         end
-                isin=mollerTrumbore(ray, fv.vertices(fv.faces(jj,:),:));
-%         isin=watertight(ray, fv.vertices(fv.faces(jj,:),:));
-        counts(ii)=counts(ii)+isin;
+%         isin=mollerTrumbore(ray, fv.vertices(fv.faces(jj,:),:));
+        [isin,~,~,taux]=watertight(ray, fv.vertices(fv.faces(jj,:),:));
+        if isempty(find(taux==t,1))
+            t=[t taux];
+            counts(ii)=counts(ii)+isin;
+        end
     end
 end
 in=mod(counts,2);

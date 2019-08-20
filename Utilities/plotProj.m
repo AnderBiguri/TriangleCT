@@ -163,7 +163,7 @@ for ii=list
     set(gca,'YDir','normal');
     
     title(['Degree : ',num2str(alpha(ii)*180/pi)]);
-%     pause(0.01);
+    pause(0.1);
 drawnow
     if savegif
         

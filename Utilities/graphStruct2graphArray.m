@@ -1,4 +1,4 @@
-function [nodes,elements,neighbours,boundary]=graphStruct2graphArray(graph)
+function [nodes,elements,neighbours,boundary,tree]=graphStruct2graphArray(graph)
 
 nodes=(csl2mat(graph.nodes.positions));
 nodes=nodes.';
@@ -21,5 +21,8 @@ if ispc
 boundary=uint32(csl2mat(graph.boundary_elems)).';
 else
 boundary=uint64(csl2mat(graph.boundary_elems)).';
+end
+if nargout>4
+tree=graph.tree;
 end
 end

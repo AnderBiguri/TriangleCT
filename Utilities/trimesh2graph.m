@@ -80,9 +80,17 @@ for ii=1:size(TRI,1)
 end
 graph.boundary_elems=int32(boundary);
 
-if length(graph.boundary_elems)>12
-    warning(['Your boundary is not minimal (length=' num2str(length(graph.boundary_elems)) ')' newline ...
-        'For optimal GPU computing speed, the length of the boundary has to be as close to 12 as possible.' newline ...
-        'If your boundary is significantly larger than this, consider using the fucntion reduceBoundary()'])
+
+for ii=1:length(graph.boundary_elems)
+    nodes=csl2mat(graph.nodes(graph.elements(graph.boundary_elems(ii)).nodeId).positions);
+    MBR(ii,:)=double([max(nodes)+0.000001 min(nodes)-0.000001]);
 end
+
+M=10;
+m=4;
+tree=R_tree(MBR,m,M);
+
+graph.tree=tree;
+
+
 end

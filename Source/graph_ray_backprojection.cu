@@ -188,7 +188,7 @@ __device__ __inline__ int nnz(float *t){
 /**************************************************************************
  *********************** Moller trumbore **********************************
  **************************************************************************/
-__device__ __inline__ float moller_trumbore(const vec3 ray1, const vec3 ray2,
+__device__ __inline__ float moller_trumbore(const float3 ray1, const float3 ray2,
         const vec3d trip1,const vec3d trip2,const vec3d trip3, const float safetyEpsilon){
     
     
@@ -237,7 +237,7 @@ __device__ __inline__ float moller_trumbore(const vec3 ray1, const vec3 ray2,
  *************************************************************************/
 
 __device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,const float *vertices,
-        const vec3 ray1, const vec3 ray2,
+        const float3 ray1, const float3 ray2,
         const unsigned long elementId,float *t,bool computelenght,const float safetyEpsilon){
     
     unsigned long auxNodeId[4];
@@ -297,8 +297,8 @@ __device__ __inline__ bool tetraLineIntersect(const unsigned long *elements,cons
  ***************************Intersection between line-box******************
  *************************************************************************/
 
-__device__ bool rayBoxIntersect(const vec3 ray1, const vec3 ray2,const vec3 nodemin, const vec3 nodemax){
-    vec3 direction;
+__device__ bool rayBoxIntersect(const float3 ray1, const float3 ray2,const float3 nodemin, const float3 nodemax){
+    float3 direction;
     direction.x=ray2.x-ray1.x;
     direction.y=ray2.y-ray1.y;
     direction.z=ray2.z-ray1.z;
@@ -361,13 +361,15 @@ __device__ bool rayBoxIntersect(const vec3 ray1, const vec3 ray2,const vec3 node
 /**************************************************************************
  ******Fucntion to detect the first triangle to expand the graph***********
  *************************************************************************/
-
+template <int tree_depth>
 __global__ void initXrays(const unsigned long* elements, const float* vertices,
         const unsigned long *boundary,const unsigned long nboundary,
-        float * d_aux, Geometry geo,
-        const vec3 source,const vec3 deltaU,const vec3 deltaV,const vec3 uvOrigin,const vec3 nodemin,const vec3 nodemax)
+        float * d_res, Geometry geo,
+        const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,
+        const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree)
 {
     
+    // Depth first R-tree search
     
     unsigned long  y = blockIdx.y * blockDim.y + threadIdx.y;
     unsigned long  x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -375,60 +377,118 @@ __global__ void initXrays(const unsigned long* elements, const float* vertices,
     if ((x>= geo.nDetecU) || (y>= geo.nDetecV))
         return;
     
+    
     unsigned int pixelV =(unsigned int)geo.nDetecV- y-1;
     unsigned int pixelU =(unsigned int) x;
     
     
+    
+    long crossingID=-1;
+//     int* path=(int*)malloc(tree_depth*sizeof(int));
+//     int* n_checked=(int*)malloc(tree_depth*sizeof(int));
+    int path[tree_depth];
+    int n_checked[tree_depth];
+    #pragma unroll
+    for (int i=0;i<tree_depth;i++)
+        n_checked[i]=0;
+    
+    float safetyEpsilon=0.0000001f;
+    float t[4];
+    float taux, tmin=1;
+    int depth=0;
     // Compute detector position
-    vec3 det;
+    float3 det;
     det.x=(uvOrigin.x+pixelU*deltaU.x+pixelV*deltaV.x);
     det.y=(uvOrigin.y+pixelU*deltaU.y+pixelV*deltaV.y);
     det.z=(uvOrigin.z+pixelU*deltaU.z+pixelV*deltaV.z);
     
-    // Should we even try? if the ray does not cross the boundary, dont try
-    bool crossBound=rayBoxIntersect(source, det, nodemin,nodemax);
-    if (!crossBound){
-        d_aux[idx]=-1.0f;
+
+    float3 nodemin,nodemax; 
+    nodemax.x=(float)bin_box[root*6+0]; nodemax.y=(float)bin_box[root*6+1]; nodemax.z=(float)bin_box[root*6+2];
+    nodemin.x=(float)bin_box[root*6+3]; nodemin.y=(float)bin_box[root*6+4]; nodemin.z=(float)bin_box[root*6+5];
+    bool isinbox=rayBoxIntersect(source, det, nodemin,nodemax);
+    if (!isinbox){
+        
+        d_res[idx]=-1.0f;
         return;
     }
+   
+    
+    bool finished=false;
+    int next_node;
+    
+    // we know it intersecst, lets start from teh first one.
+   
+    depth=0;   
+    path[0]=root;
+    n_checked[0]=1;
+    //path[depth]=(int)bin_elements[root*(M+1)+0];
+    
+    crossingID=-1;
+    int iter=0;
     
     
-    
-    // Check intersection with all elements in the boudnary
-    unsigned long notintersect=nboundary;
-    float t[4];
-    float t1,tinter=10000.0f;
-    float safetyEpsilon=0.0000001f;
-    long crossingID=-1;
-    //Check with all elements, and keep the one that gives lowest parameter
-    while(notintersect==nboundary){
-        notintersect=0;
-        
-        for(unsigned long i=0 ;i<nboundary;i++){
-            tetraLineIntersect(elements,vertices,source,det,boundary[i],t,true,safetyEpsilon);
-            if (nnz(t)==0){
-                notintersect++;
-            }else{
-                t1=min4nz(t);
-                if (t1<tinter){
-                    tinter=t1;
-                    crossingID=i;
-                }
-            }
+    while (~finished){
+        iter++;
+        // if the next one to check in the current node is the last one, then we have checked everything,
+        // go up one node
+        while((long)n_checked[depth]>=(long)bin_n_elements[path[depth]]){
+            depth--;
         }
-        safetyEpsilon=safetyEpsilon*10;
+        if (depth<0){
+            finished=true;
+            d_res[idx]=(float)crossingID;
+            return;
+        }
+        
+        next_node=bin_elements[path[depth]*(M+1)+n_checked[depth]];
+        
+        //get bounding box
+        nodemax.x=bin_box[next_node*6+0]; nodemax.y=bin_box[next_node*6+1]; nodemax.z=bin_box[next_node*6+2];
+        nodemin.x=bin_box[next_node*6+3]; nodemin.y=bin_box[next_node*6+4]; nodemin.z=bin_box[next_node*6+5];
+        isinbox=rayBoxIntersect(source, det, nodemin,nodemax);
+        // count that we checked it already
+        n_checked[depth]++;
+        
+        if (isinbox){
+            if(!isleaf[next_node]){
+                // if its not a leaf, then we just go deeper
+                depth++;
+                n_checked[depth]=0;//lets make sure prior values do not interfere now. If we go deeper, it means its the first time on this node.
+                path[depth]=next_node;
+            }else{
+                // if its a leaf, we shoudl check the triangles
+                for(unsigned int i=0;i<bin_n_elements[next_node];i++){
+                    // check all triangles, obtain smallest t
+                    tetraLineIntersect(elements,vertices,source,det,boundary[bin_elements[next_node*(M+1)+i]],t,true,safetyEpsilon);
+                    // if there is an intersection
+                    if ((t[0]+t[1]+t[2]+t[3])!=0){
+                        taux=min4nz(t);
+                        if (taux<tmin){
+                            tmin=taux;
+                            crossingID=bin_elements[next_node*(M+1)+i];
+                        }
+                    }
+                }//endfor
+            }
+        }//end isinbox
+        // If its not inside, then we just loop again and check the next one.
     }
-    
-    d_aux[idx]=(float)crossingID;
-    return;
-    
 }
+
+template __global__ void initXrays<2>(const unsigned long* elements, const float* vertices,const unsigned long *boundary,const unsigned long nboundary,float * d_res, Geometry geo,const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree);
+template __global__ void initXrays<4>(const unsigned long* elements, const float* vertices,const unsigned long *boundary,const unsigned long nboundary,float * d_res, Geometry geo,const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree);
+template __global__ void initXrays<6>(const unsigned long* elements, const float* vertices,const unsigned long *boundary,const unsigned long nboundary,float * d_res, Geometry geo,const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree);
+template __global__ void initXrays<8>(const unsigned long* elements, const float* vertices,const unsigned long *boundary,const unsigned long nboundary,float * d_res, Geometry geo,const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree);
+template __global__ void initXrays<10>(const unsigned long* elements, const float* vertices,const unsigned long *boundary,const unsigned long nboundary,float * d_res, Geometry geo,const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree);
+template __global__ void initXrays<12>(const unsigned long* elements, const float* vertices,const unsigned long *boundary,const unsigned long nboundary,float * d_res, Geometry geo,const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree);
+template __global__ void initXrays<14>(const unsigned long* elements, const float* vertices,const unsigned long *boundary,const unsigned long nboundary,float * d_res, Geometry geo,const float3 source,const float3 deltaU,const float3 deltaV,const float3 uvOrigin,const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree);
 /**************************************************************************
  ******************The mein projection fucntion ***************************
  *************************************************************************/
 
 __global__ void graphBackproject(const unsigned long *elements, const float *vertices,const unsigned long *boundary,const long *neighbours, const float * d_proj, const float * d_auxInit, float * d_image, Geometry geo,
-        vec3 source, vec3 deltaU, vec3 deltaV, vec3 uvOrigin){
+        float3 source, float3 deltaU, float3 deltaV, float3 uvOrigin){
     
     unsigned long  y = blockIdx.y * blockDim.y + threadIdx.y;
     //unsigned long  y = threadIdx.y * gridDim.y + blockIdx.y;
@@ -453,7 +513,7 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
     // for speed. Minimize reads
     float pixel_value=d_proj[idx];
     //  Get the coordinates of the detector for this kernel
-    vec3 det;
+    float3 det;
     
     det.x=(uvOrigin.x+pixelU*deltaU.x+pixelV*deltaV.x);
     det.y=(uvOrigin.y+pixelU*deltaU.y+pixelV*deltaV.y);
@@ -492,7 +552,7 @@ __global__ void graphBackproject(const unsigned long *elements, const float *ver
     t1=min4nz(t);
     
     // Lets get the ray (direction) and the current intersection length.
-    vec3 direction,p1,p2;
+    float3 direction,p1,p2;
     direction.x=det.x-source.x;     direction.y=det.y-source.y;     direction.z=det.z-source.z;
     p2.x=direction.x* (t2);  p2.y=direction.y* (t2); p2.z=direction.z* (t2);
     p1.x=direction.x* (t1);  p1.y=direction.y* (t1); p1.z=direction.z* (t1);
@@ -615,6 +675,7 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
         const unsigned long* elements,const unsigned long nelements,
         const long* neighbours,const unsigned long nneighbours,
         const unsigned long* boundary,const unsigned long nboundary,
+        const int* bin_n_elements,const long* bin_elements,const double* bin_box,const int M,const int m,const double* MBR,const bool* isleaf,const long root,const long length_tree, const long tree_depth,
         float * result)
 {
     
@@ -652,6 +713,13 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     size_t num_bytes_elements = nelements*4*sizeof(unsigned long);
     size_t num_bytes_neighbours = nneighbours*4*sizeof(long);
     size_t num_bytes_boundary = nboundary*sizeof(unsigned long);
+        // R-tree
+    size_t num_bytes_bin_n_elements = length_tree*sizeof(int);
+    size_t num_bytes_bin_elements =  length_tree*(M+1)*sizeof(long);
+    size_t num_bytes_bin_box = 6*length_tree*sizeof(double);
+    size_t num_bytes_MBR = 6*nboundary*sizeof(double);
+    size_t num_bytes_isleaf=length_tree*sizeof(bool);
+    
     
     unsigned long long mem_needed_graph=num_bytes_nodes+num_bytes_elements+num_bytes_neighbours+num_bytes_boundary;
     unsigned long long mem_free_GPU=mem_GPU_global-mem_needed_graph;
@@ -680,7 +748,13 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     unsigned long** d_elements      =   (unsigned long **)  malloc(deviceCount*sizeof(unsigned long*));
     long **         d_neighbours    =   ( long **)          malloc(deviceCount*sizeof(long*));
     unsigned long** d_boundary      =   (unsigned long **)  malloc(deviceCount*sizeof(unsigned long*));
-    
+    // R-tree vars
+    int**           d_bin_n_elements=   (int **)            malloc(deviceCount*sizeof(int*));
+    long**          d_bin_elements  =   (long**)            malloc(deviceCount*sizeof(long*));
+    double**        d_bin_box       =   (double**)          malloc(deviceCount*sizeof(double*));
+    double**        d_MBR           =   (double**)          malloc(deviceCount*sizeof(double*));
+    bool**          d_isleaf        =   (bool**)            malloc(deviceCount*sizeof(bool*));
+
     for (dev = 0; dev < deviceCount; dev++) {
         cudaSetDevice(dev);
         
@@ -708,14 +782,29 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
         
         gpuErrchk(cudaMalloc((void **)&d_boundary[dev],num_bytes_boundary));
         gpuErrchk(cudaMemcpyAsync(d_boundary[dev],boundary,num_bytes_boundary,cudaMemcpyHostToDevice));
+                // Now all the R-tree stuff
+        gpuErrchk(cudaMalloc((void **)&d_bin_n_elements[dev],num_bytes_bin_n_elements));
+        gpuErrchk(cudaMemcpyAsync(d_bin_n_elements[dev],bin_n_elements,num_bytes_bin_n_elements,cudaMemcpyHostToDevice));
+
+        gpuErrchk(cudaMalloc((void **)&d_bin_elements[dev],num_bytes_bin_elements));
+        gpuErrchk(cudaMemcpyAsync(d_bin_elements[dev],bin_elements,num_bytes_bin_elements,cudaMemcpyHostToDevice));
+
+        gpuErrchk(cudaMalloc((void **)&d_bin_box[dev],num_bytes_bin_box));
+        gpuErrchk(cudaMemcpyAsync(d_bin_box[dev],bin_box,num_bytes_bin_box,cudaMemcpyHostToDevice));
         
+        gpuErrchk(cudaMalloc((void **)&d_MBR[dev],num_bytes_MBR));
+        gpuErrchk(cudaMemcpyAsync(d_MBR[dev],MBR,num_bytes_MBR,cudaMemcpyHostToDevice));
+  
+        gpuErrchk(cudaMalloc((void **)&d_isleaf[dev],num_bytes_isleaf));
+        gpuErrchk(cudaMemcpyAsync(d_isleaf[dev],isleaf,num_bytes_isleaf,cudaMemcpyHostToDevice));
+
     }
     
     
   
     // Replace by a reduction (?)
      // Replace by a reduction (?)
-    vec3 nodemin, nodemax;
+    float3 nodemin, nodemax;
     float max[3],min[3];
     cudaSetDevice(0);
     reduceNodes(d_nodes[0], nnodes, max, min);
@@ -733,8 +822,8 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
     dim3 grid((geo.nDetecU+divU-1)/divU,(geo.nDetecV+divV-1)/divV,1);
     dim3 block(divU,divV,1);
     
-    vec3  deltaU, deltaV, uvOrigin;
-    vec3 source;
+    float3  deltaU, deltaV, uvOrigin;
+    float3 source;
     for (unsigned int i=0;i<nangles;i+=(unsigned int)deviceCount){
         for (dev = 0; dev < deviceCount; dev++){
              cudaSetDevice(dev);
@@ -748,8 +837,41 @@ void graphBackwardRay(float const * const  projections,  Geometry geo,
             computeGeomtricParams(geo, &source,&deltaU, &deltaV,&uvOrigin,i+dev);
          
             cudaSetDevice(dev);
-
-            initXrays << <grid,block >> >(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary,d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,nodemin,nodemax);
+            switch ((int)((tree_depth + 2 - 1) / 2) * 2){
+                case 2:
+                    initXrays<2><<<grid,block >>>(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,
+                            d_bin_n_elements[dev],d_bin_elements[dev],d_bin_box[dev],M,m,d_MBR[dev],d_isleaf[dev],root,length_tree);
+                    break;
+                case 4:
+                    initXrays<4><<<grid,block >>>(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,
+                            d_bin_n_elements[dev],d_bin_elements[dev],d_bin_box[dev],M,m,d_MBR[dev],d_isleaf[dev],root,length_tree);
+                    break;
+                case 6:
+                    initXrays<6><<<grid,block >>>(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,
+                            d_bin_n_elements[dev],d_bin_elements[dev],d_bin_box[dev],M,m,d_MBR[dev],d_isleaf[dev],root,length_tree);
+                    break;
+                case 8:
+                    initXrays<8><<<grid,block >>>(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,
+                            d_bin_n_elements[dev],d_bin_elements[dev],d_bin_box[dev],M,m,d_MBR[dev],d_isleaf[dev],root,length_tree);
+                    break;
+                case 10:
+                    initXrays<10><<<grid,block >>>(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,
+                            d_bin_n_elements[dev],d_bin_elements[dev],d_bin_box[dev],M,m,d_MBR[dev],d_isleaf[dev],root,length_tree);
+                    break;
+                case 12:
+                    initXrays<12><<<grid,block >>>(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,
+                            d_bin_n_elements[dev],d_bin_elements[dev],d_bin_box[dev],M,m,d_MBR[dev],d_isleaf[dev],root,length_tree);
+                    break;
+                case 14:
+                    initXrays<14><<<grid,block >>>(d_elements[dev],d_nodes[dev],d_boundary[dev],nboundary, d_auxInit[dev], geo, source,deltaU, deltaV,uvOrigin,
+                            d_bin_n_elements[dev],d_bin_elements[dev],d_bin_box[dev],M,m,d_MBR[dev],d_isleaf[dev],root,length_tree);
+                    break;
+                default:
+                    mexErrMsgIdAndTxt("MEX:graph_ray_projections","R*-Tree is to deep (more than 14)");
+                    break;
+                    
+            }
+        
             graphBackproject<< <grid,block >> >(d_elements[dev],d_nodes[dev],d_boundary[dev],d_neighbours[dev],d_proj[dev],d_auxInit[dev],d_image[dev], geo,source,deltaU,deltaV,uvOrigin);
         }
     }
@@ -851,11 +973,11 @@ void reduceNodes(float *d_nodes, unsigned long nnodes, float* max, float* min){
 
 
 // TODO: quite a lot of geometric transforms.
-void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3* deltaV, vec3* originUV,unsigned int idxAngle){
+void computeGeomtricParams(const Geometry geo,float3 * source, float3* deltaU, float3* deltaV, float3* originUV,unsigned int idxAngle){
     
-    vec3 auxOriginUV;
-    vec3 auxDeltaU;
-    vec3 auxDeltaV;
+    float3 auxOriginUV;
+    float3 auxDeltaU;
+    float3 auxDeltaV;
     auxOriginUV.x=-(geo.DSD[idxAngle]-geo.DSO[idxAngle]);
     // top left
     auxOriginUV.y=-geo.sDetecU/2+/*half a pixel*/geo.dDetecU/2;
@@ -874,7 +996,7 @@ void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3*
     auxDeltaV.y=auxOriginUV.y;
     auxDeltaV.z=auxOriginUV.z-geo.dDetecV;
     
-    vec3 auxSource;
+    float3 auxSource;
     auxSource.x=geo.DSO[idxAngle];
     auxSource.y=0;
     auxSource.z=0;
@@ -902,8 +1024,8 @@ void computeGeomtricParams(const Geometry geo,vec3 * source, vec3* deltaU, vec3*
     return;
 }
 
-void eulerZYZ(Geometry geo,  vec3* point){
-    vec3 auxPoint;
+void eulerZYZ(Geometry geo,  float3* point){
+    float3 auxPoint;
     auxPoint.x=point->x;
     auxPoint.y=point->y;
     auxPoint.z=point->z;

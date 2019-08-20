@@ -14,11 +14,22 @@ if size(angles,1)==1
    angles(3,:)=0;
 end
 
-[nodes,elements,neighbours,boundary]=graphStruct2graphArray(graph);
+[nodes,elements,neighbours,boundary,tree]=graphStruct2graphArray(graph);
 elements=elements-1;
 neighbours=neighbours-1;
 boundary=boundary-1;
 
-proj=graphForward(trivals,geo,angles,elements,(nodes),neighbours,boundary);
+
+tree=checkTree(tree);
+tree.bin_elements=tree.bin_elements-1;
+tree.root=tree.root-1;
+% tree.bin_elements(tree.bin_elements==tree.bin_elements==-1)=-3;
+
+
+if tree.depth>14
+   error('R-trees with maximum depth of 14 supported, add more templates to the CUDA code, but that is a long tree'); 
+end
+
+proj=graphForward(trivals,geo,angles,elements,nodes,neighbours,boundary,tree);
 
 end

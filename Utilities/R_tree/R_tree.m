@@ -52,6 +52,9 @@ tree.isleaf=true;
 
 % where is the root.
 tree.root=1;
+
+% 
+tree.depth=1;
 %% Build it
 
 
@@ -376,6 +379,8 @@ else
     % update root
     tree.root=length(tree.bin_n_elements);
     
+    % update depth
+    tree.depth=tree.depth+1;
 end
 obj=[];
 for jj=1:length(tree.isleaf)
