@@ -22,7 +22,7 @@ X-ray projection simulations from tetrahedra mesh
 
 Slice of reconstruction on tetrahedra mesh using OS-SART
 
-![as](https://github.com/AnderBiguri/TriangleCT/blob/master/bunny1024_100.gif)
+![as](https://github.com/AnderBiguri/TriangleCT/blob/master/Bunny_1024_100_OSSART30_xz.png)
 
 
 # Contact
