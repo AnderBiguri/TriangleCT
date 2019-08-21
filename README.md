@@ -14,13 +14,15 @@ This is research code. Its neither pretty, nor bug free.
 
 Surface representation of tetrahedra mesh
 
-[[https://github.com/AnderBiguri/TriangleCT/blob/master/Bunny_teapot.png]]
+![as](https://github.com/AnderBiguri/TriangleCT/blob/master/Bunny_teapot.png)
 
 X-ray projection simulations from tetrahedra mesh
 
-[[https://github.com/AnderBiguri/TriangleCT/blob/master/bunny1024_100.gif]]
+![as](https://github.com/AnderBiguri/TriangleCT/blob/master/bunny1024_100.gif)
 
-Slice of reconstruction on 
+Slice of reconstruction on tetrahedra mesh using OS-SART
+
+![as](https://github.com/AnderBiguri/TriangleCT/blob/master/bunny1024_100.gif)
 
 
 # Contact
