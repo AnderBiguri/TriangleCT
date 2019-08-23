@@ -55,8 +55,13 @@ toc
 geo.DSD = 1536;                             % Distance Source Detector      (mm)
 geo.DSO = 1000;                             % Distance Source Origin        (mm)
 % Detector parameters
+<<<<<<< HEAD
 geo.nDetector=[512; 512];					% number of pixels              (px)
 geo.dDetector=[0.35; 0.35]; 		     	% size of each pixel            (mm)
+=======
+geo.nDetector=[512; 512]*2;					% number of pixels              (px)
+geo.dDetector=[0.35; 0.35]/2; 		     	% size of each pixel            (mm)
+>>>>>>> e45cdb45f55e1021b798cb1aaa92a0dca624153b
 geo.sDetector=geo.nDetector.*geo.dDetector; % total size of the detector    (mm)
 % Image parameters
 geo.nVoxel=[512,512,512]';                     % number of voxels              (vx)
@@ -76,6 +81,7 @@ angles=linspace(0,2*pi-2*pi/100,100);
 %  proj=projection(single(values-1),geo,angles,graph);
 %  toc
 load('bunny_proj.mat','proj')
+
 % return;
  %%
 
