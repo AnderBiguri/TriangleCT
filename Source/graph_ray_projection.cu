@@ -897,6 +897,12 @@ void graphForwardRay(float const * const  image,  Geometry geo,
     
     for (unsigned int i=0;i<nangles;i+=(unsigned int)deviceCount){
         for (dev = 0; dev < deviceCount; dev++){
+            
+            if (i+dev >=nangles){
+                //mexWarnMsgIdAndTxt("TriangleCT:graphBackward:GPUselect"," i+dev >=nangles \n");
+                break;
+            }
+            
             geo.alpha=angles[(i+dev)*3];
             geo.theta=angles[(i+dev)*3+1];
             geo.psi  =angles[(i+dev)*3+2];
